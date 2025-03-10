@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+@theme {
+  --color-mvb-white: #FFFFFF; /* (White - $1 bill equivalent) */
+  --color-mvb-blue: #ADD8E6; /* (Light Blue - $5 bill equivalent) */
+  --color-mvb-green: #90EE90; /* (Light Green - $10 bill equivalent) */
+  --color-mvb-pale: #FFFFE0; /* (Light Yellow - $20 bill equivalent) */
+  --color-mvb-salmon: #FFA07A; /* (Light Salmon/Pink - $50 bill equivalent) */
+  --color-mvb-orange: #FFA500; /* (Orange - $100 bill equivalent) */
+  --color-mvb-yellow: #FFD700; /* (Gold/Yellow - $500 bill equivalent) */
+  --color-mvb-gray: #D3D3D3; /* (Light Grey - $1000 bill equivalent) */
+}
+
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
