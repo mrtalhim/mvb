@@ -57,15 +57,26 @@ import ModalNumberInput from '../components/ModalNumberInput.vue';
 import TransactionLog from '../components/TransactionLog.vue';
 import { ref, computed, onMounted } from 'vue';
 
-// Player Data
-const playerCount = ref(4); // Default to 4 players
+const props = defineProps({
+    playerCount: {  // Define playerCount as a prop
+        type: Number,
+        required: true, // Make it required - App.vue should always pass this prop
+        default: 4
+    },
+    startingMoney: { // Define startingMoney as a prop
+        type: Number,
+        required: true, // Make it required - App.vue should always pass this prop
+        default: 1500,
+    },
+});
+
 const players = ref([]);
 const transactionLog = ref([]);
 
 const initializePlayers = () => {
     const playerArray = [];
-    for (let i = 1; i <= playerCount.value; i++) {
-        playerArray.push({ id: i, name: `Player ${i}`, balance: 1500 }); // Initialize with default balance
+    for (let i = 1; i <= props.playerCount; i++) {
+        playerArray.push({ id: i, name: `Player ${i}`, balance: props.startingMoney }); // Initialize with default balance
     }
     return playerArray;
 };
@@ -140,8 +151,8 @@ const generateLayoutConfig = (playerCount) => {
 const layoutConfig = ref({}); // Initialize as empty ref
 
 onMounted(() => {
-    layoutConfig.value = generateLayoutConfig(playerCount.value);
-    console.log("Initial Player Count (onMounted):", playerCount.value);
+    layoutConfig.value = generateLayoutConfig(props.playerCount);
+    console.log("Initial Player Count (onMounted):", props.playerCount);
     players.value = initializePlayers();
     console.log("Initial Layout Config (onMounted):", layoutConfig.value);
 });
@@ -269,7 +280,7 @@ const getWalletOrientation = (walletName) => {
     }
 
     const playerNumber = parseInt(walletName.replace('Player ', ''));
-    const playerLayout = layoutConfig.value[playerCount.value]?.find(
+    const playerLayout = layoutConfig.value[props.playerCount]?.find(
         layout => layout.playerNum === playerNumber
     );
 
@@ -285,7 +296,7 @@ const handleTransactionRequest = (eventPayload) => {
     selectedWalletName.value = eventPayload.senderName;
 
     // Determine orientation of the sender wallet and set selectedWalletOrientation
-    const senderPlayerLayout = layoutConfig.value[playerCount.value]?.find(layout => layout.playerNum === parseInt(eventPayload.senderName.replace('Player ', '')));
+    const senderPlayerLayout = layoutConfig.value[props.playerCount]?.find(layout => layout.playerNum === parseInt(eventPayload.senderName.replace('Player ', '')));
     if (senderPlayerLayout) {
         selectedWalletOrientation.value = senderPlayerLayout.orientation || 'up';
     } else if (eventPayload.senderName === 'Bank' || eventPayload.senderName === 'Tax') {
@@ -306,7 +317,7 @@ const handleMoneyRequest = (walletName, type) => {
     transactionType.value = type;
 
     // Determine orientation of the selected wallet and set selectedWalletOrientation
-    const selectedPlayerLayout = layoutConfig.value[playerCount.value]?.find(layout => layout.playerNum === parseInt(walletName.replace('Player ', '')));
+    const selectedPlayerLayout = layoutConfig.value[props.playerCount]?.find(layout => layout.playerNum === parseInt(walletName.replace('Player ', '')));
     if (selectedPlayerLayout) {
         selectedWalletOrientation.value = selectedPlayerLayout.orientation || 'up';
     } else if (walletName === 'Bank' || walletName === 'Tax') {
