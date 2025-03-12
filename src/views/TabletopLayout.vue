@@ -45,6 +45,8 @@
                 :receiverColor="receiverWalletColor" @confirm-value="handleConfirmValue" @cancel="handleCancelModal"
                 :modalOrientation="selectedWalletOrientation" />
         </Transition>
+
+        <TransactionLog :transactions="transactionLog" />
     </div>
 </template>
 
@@ -52,11 +54,13 @@
 <script setup>
 import WalletBoard from '../components/WalletBoard.vue';
 import ModalNumberInput from '../components/ModalNumberInput.vue';
+import TransactionLog from '../components/TransactionLog.vue';
 import { ref, computed, onMounted } from 'vue';
 
 // Player Data
 const playerCount = ref(4); // Default to 4 players
 const players = ref([]);
+const transactionLog = ref([]);
 
 const initializePlayers = () => {
     const playerArray = [];
@@ -354,6 +358,18 @@ const handleConfirmValue = (eventPayload) => {
                 console.log(`Player (Receiver - ${receiverName}) - Balance after:`, players.value[receiverPlayerIndex].balance);
             }
         }
+
+        const transactionEntry = { // CORRECTED - Implement transactionEntry object creation here
+            timestamp: new Date().toLocaleString(), // Get current timestamp
+            senderName: senderName,
+            receiverName: receiverName,
+            amount: amount,
+            transactionType: 'transfer', // For drag and drop transactions - You can make this dynamic if needed later
+        };
+
+        // Push transaction entry to CENTRALIZED transactionLog in TabletopLayout.vue (Remains same)
+        transactionLog.value.push(transactionEntry); // Push transaction entry to CENTRALIZED transactionLog
+        console.log(`Transaction logged to CENTRALIZED transaction log.`);
 
         isModalVisible.value = false;
         selectedWalletName.value = null;
