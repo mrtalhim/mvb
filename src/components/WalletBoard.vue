@@ -1,18 +1,29 @@
 <template>
-    <div class="wallet-board rounded-md border-2 border-gray-300 p-4 flex flex-col items-center justify-center"
-        :class="[walletColorClass, { 'expanded': expanded }]" @click.stop="$emit('wallet-clicked', name)">
-        <div class="board-content" :style="contentRotationStyle"> <!-- Container for rotated content -->
+    <div class="wallet-board rounded-md border-2 border-gray-300 p-4 flex flex-col items-center justify-center transition-discrete"
+        :class="[walletColorClass, { 'expanded': expanded, 'drop-target-hover': isDropTargetHover, 'touch-target-hover': isTouchTargetHover }]"
+        @click.stop="$emit('wallet-clicked', name)" @dragleave="onDragLeave" @dragover="onDragOver" @drop="onDrop"
+        @touchstart="onTouchStart" @touchmove="onTouchMove" @touchend="onTouchEnd">
+        <div class="board-content" :style="contentRotationStyle" @dragenter="onDragEnter">
+            <!-- Container for rotated content -->
+            <button v-if="expanded" @click.stop="$emit('wallet-clicked', name)"
+                class="absolute top-2 right-2 bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded-md shadow-md transition-all">
+                Close
+            </button>
             <h3 class="player-name text-md text-center text-black">{{ name }}</h3>
             <Transition name="balance-update-transition" mode="out-in"> <!-- Transition component wrapping balance -->
                 <p class="balance text-2xl font-bold text-center text-black" :key="displayBalance">{{ displayBalance }}
                 </p>
             </Transition>
+
+            <TransactionLog v-if="expanded" :transactions="transactionHistory" :isPersonal="true"
+                :title="`Transaction History (${name})`" />
         </div>
     </div>
 </template>
 
 <script setup>
 import { computed, ref } from 'vue';
+import TransactionLog from './TransactionLog.vue';
 
 const props = defineProps({
     name: {
@@ -42,7 +53,26 @@ const props = defineProps({
     },
 });
 
-const emit = defineEmits(['wallet-clicked', 'transaction-requested']);
+const transactionHistory = ref([]); // Reactive array to store transaction history for each wallet
+const isDropTargetHover = ref(false);
+const isTouchTargetHover = ref(false);
+
+const pushTransaction = (transaction) => {
+    transactionHistory.value.push(transaction);
+};
+
+// New method to be called externally to clear the hover state
+const clearDropTargetHover = () => {
+    isDropTargetHover.value = false;
+};
+
+defineExpose({
+    transactionHistory,
+    pushTransaction,
+    clearDropTargetHover
+});
+
+const emit = defineEmits(['wallet-clicked', 'transaction-requested', 'drop']);
 
 const displayBalance = computed(() => {
     if (props.isBank) {
@@ -100,6 +130,43 @@ const contentRotationStyle = computed(() => {
     };
 });
 
+const onDragEnter = (event) => {
+    console.log("Drag ENTERED Wallet:", props.name); // Log dragenter eventisDropTargetHover prop
+    isDropTargetHover.value = true;
+};
+
+const onDragLeave = (event) => {
+    console.log("Drag LEFT Wallet:", props.name);  // Log dragleave eventisDropTargetHover prop
+    isDropTargetHover.value = false;
+};
+
+const onDragOver = (event) => {
+    const isTouch = event.type.includes('touch');
+    if (isTouch) {
+        isTouchTargetHover.value = true;
+    } else {
+        isDropTargetHover.value = true;
+    }
+};
+
+const onDrop = () => {
+    console.log('Drop detected inside walletboard');
+    emit('drop');
+};
+
+const onTouchStart = (event) => {
+    console.log('touch start detected')
+};
+
+const onTouchMove = (event) => {
+    console.log('touch move detected')
+    event.preventDefault();
+};
+
+const onTouchEnd = (event) => {
+    console.log('touch end detected')
+    isTouchTargetHover.value = false;
+};
 </script>
 
 <style scoped>
@@ -134,23 +201,43 @@ const contentRotationStyle = computed(() => {
 }
 
 .wallet-board.expanded {
-    /* position: fixed;
-    top: 50%;
-    left: 50%; */
-    transform: scale(1.5);
+    @apply text-2xl;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100svh;
+    transform: scale(1);
     z-index: 101;
-    /* Ensure expanded board is on top of modal overlay */
-    /* width: auto; */
-    /* Auto width to fit expanded content */
-    /* height: auto; */
-    /* Auto height to fit expanded content */
-    max-width: 90vw;
-    /* Max width to prevent overflow on very wide screens */
-    max-height: 90vh;
-    transition: transform 0.3s ease-out, box-shadow 0.3s ease-out, top 0.3s ease-out, left 0.3s ease-out;
+    transition: transform 0.3s ease-out, box-shadow 0.3s ease-out;
     /* Smooth transition for expansion */
     box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.5);
     /* More prominent shadow for expanded view */
+}
+
+.wallet-board.drop-target-hover {
+    /* Targeting .wallet-board elements that ALSO have .drop-target-hover class */
+    background-color: rgba(255, 255, 255, 0.9);
+    /* Example: Slightly darker white background - Adjust color/opacity as needed */
+    transform: scale(1.03);
+    /* Example: Scale up slightly on hover - Adjust scale value as needed */
+    transition: background-color 0.2s ease-out, transform 0.2s ease-out;
+    /* Smooth transition for hover effect */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    /* Example: Add subtle shadow on hover - Adjust shadow as needed */
+    border-color: blue;
+    /* Example: Blue border - to visually highlight */
+    border-width: 2px;
+    /* Example: Thicker border - to visually highlight */
+}
+
+.wallet-board.touch-target-hover {
+    background-color: rgba(255, 255, 255, 0.9);
+    transform: scale(1.03);
+    transition: background-color 0.2s ease-out, transform 0.2s ease-out;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    border-color: red;
+    border-width: 10px;
 }
 
 .board-content {
@@ -163,6 +250,7 @@ const contentRotationStyle = computed(() => {
     width: 100%;
     /* Ensure content fills board width */
     height: 100%;
+    pointer-events: none;
     /* Ensure content fills board height */
     /* Rotation is now applied DYNAMICALLY using :style binding in template - NO CSS rotation here */
 }

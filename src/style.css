@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-mvb-white: #FFFFFF; /* (White - $1 bill equivalent) */
   --color-mvb-blue: #ADD8E6; /* (Light Blue - $5 bill equivalent) */

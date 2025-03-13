@@ -1,62 +1,82 @@
 <template>
-    <div class="tabletop-layout p-4 bg-gray-100 min-h-screen flex flex-col items-center" @dragover.prevent>
+    <div class="p-4 flex flex-col bg-gray-100 h-svh items-center" @dragover.prevent>
+        <div class="w-full pb-4 justify-center flex flex-row">
+            <button @click="toggleTransactionLogModal"
+                class="bg-blue-500 hover:bg-blue-700 hover:shadow-md transition-all text-white font-bold py-2 px-4 rounded">Transaction
+                Log</button>
+        </div>
 
         <!-- Bank Wallet -->
-        <div class="bank-area mb-4">
-            <WalletBoard name="Bank" :balance="bankBalance" isBank @transaction-requested="handleTransactionRequest"
-                draggable="true" @dragstart="handleDragStart($event, 'Bank')" @drop="handleDrop($event, 'Bank')"
-                @dragover.prevent @dragenter.prevent />
-        </div>
+        <div class="tabletop-layout w-full flex-1">
 
-        <div class="layout-grid grid">
-            <!-- Show fallback message if layout config doesn't exist -->
-            <div v-if="!layoutConfig[playerCount]" class="col-span-full">
-                <p class="text-red-500 text-center">Layout not configured for {{ playerCount }} players.</p>
+            <div class="bank-area mb-4">
+                <WalletBoard name="Bank" :balance="bankBalance" isBank @transaction-requested="handleTransactionRequest"
+                    draggable="true" @dragstart="handleDragStart($event, 'Bank')" @drop="handleDrop($event, 'Bank')"
+                    @dragover.prevent @dragenter.prevent ref="bankWalletRef" />
             </div>
 
-            <!-- Otherwise render player cells using the layout config -->
-            <template v-else>
-                <div v-for="(element, index) in layoutConfig[playerCount]" :key="element.playerNum"
-                    class="player-cell justify-center flex" :class="element.cellClass">
-                    <WalletBoard :name="`Player ${element.playerNum}`"
-                        :balance="players[element.playerNum - 1]?.balance || 0"
-                        @transaction-requested="handleTransactionRequest" :orientation="element.orientation"
-                        draggable="true" @dragstart="handleDragStart($event, `Player ${element.playerNum}`)"
-                        @drop="handleDrop($event, `Player ${element.playerNum}`)" @dragover.prevent @dragenter.prevent
-                        @wallet-clicked="handleWalletClicked"
-                        :expanded="expandedWallets.has(`Player ${element.playerNum}`)" />
+            <div class="layout-grid grid">
+                <!-- Show fallback message if layout config doesn't exist -->
+                <div v-if="!layoutConfig[playerCount]" class="col-span-full">
+                    <p class="text-red-500 text-center">Layout not configured for {{ playerCount }} players.</p>
                 </div>
-            </template>
+
+                <!-- Otherwise render player cells using the layout config -->
+                <template v-else>
+                    <div v-for="(element, index) in layoutConfig[playerCount]" :key="element.playerNum"
+                        class="player-cell justify-center flex" :class="element.cellClass">
+                        <WalletBoard :name="`Player ${element.playerNum}`"
+                            :balance="players[element.playerNum - 1]?.balance || 0"
+                            @transaction-requested="handleTransactionRequest" :orientation="element.orientation"
+                            draggable="true" @dragstart="handleDragStart($event, `Player ${element.playerNum}`)"
+                            @drop="handleDrop($event, `Player ${element.playerNum}`)" @dragover.prevent
+                            @dragenter.prevent @wallet-clicked="handleWalletClicked"
+                            :expanded="expandedWallets.has(`Player ${element.playerNum}`)"
+                            :ref="(el) => setPlayerWalletRef(el, element.playerNum)" />
+                    </div>
+                </template>
+            </div>
+
+            <!-- Tax Wallet -->
+            <div class="tax-area mt-4">
+                <WalletBoard name="Tax" :balance="taxBalance" isTax @transaction-requested="handleTransactionRequest"
+                    draggable="true" @dragstart="handleDragStart($event, 'Tax')" @drop="handleDrop($event, 'Tax')"
+                    @dragover.prevent @dragenter.prevent :expanded="expandedWallets.has('Tax')"
+                    @wallet-clicked="handleWalletClicked" ref="taxWalletRef" />
+            </div>
+
+            <!-- Modal Number Input (remains same) -->
+            <Transition name="modal-fade">
+                <ModalNumberInput v-if="isModalVisible" :senderBalance="selectedWalletBalance"
+                    :receiverBalance="receiverWalletBalance" :senderName="senderWalletName"
+                    :senderColor="senderWalletColor" :receiverName="receiverWalletName"
+                    :receiverColor="receiverWalletColor" @confirm-value="handleConfirmValue" @cancel="handleCancelModal"
+                    :modalOrientation="selectedWalletOrientation" />
+            </Transition>
+
+            <!-- Transaction Log Modal -->
+            <Transition name="modal-fade">
+                <div v-if="isTransactionLogModalVisible"
+                    class="modal-overlay fixed inset-0 flex items-center justify-center z-50">
+                    <div
+                        class="modal-content bg-white p-6 rounded-md shadow-lg dark:bg-gray-800 dark:text-white w-full h-full max-w-screen-xl max-h-screen">
+                        <button @click="toggleTransactionLogModal"
+                            class="absolute top-4 right-4 bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">Close</button>
+                        <TransactionLog :transactions="transactionLog" />
+                    </div>
+                </div>
+            </Transition>
         </div>
-
-        <!-- Tax Wallet -->
-        <div class="tax-area mt-4">
-            <WalletBoard name="Tax" :balance="taxBalance" isTax @transaction-requested="handleTransactionRequest"
-                draggable="true" @dragstart="handleDragStart($event, 'Tax')" @drop="handleDrop($event, 'Tax')"
-                @dragover.prevent @dragenter.prevent :expanded="expandedWallets.has('Tax')"
-                @wallet-clicked="handleWalletClicked" />
-        </div>
-
-        <!-- Modal Number Input (remains same) -->
-        <Transition name="modal-fade">
-            <ModalNumberInput v-if="isModalVisible" :senderBalance="selectedWalletBalance"
-                :receiverBalance="receiverWalletBalance" :transactionDescription="transactionDescription"
-                :senderName="senderWalletName" :senderColor="senderWalletColor" :receiverName="receiverWalletName"
-                :receiverColor="receiverWalletColor" @confirm-value="handleConfirmValue" @cancel="handleCancelModal"
-                :modalOrientation="selectedWalletOrientation" />
-        </Transition>
-
-        <TransactionLog :transactions="transactionLog" />
     </div>
 </template>
-
 
 <script setup>
 import WalletBoard from '../components/WalletBoard.vue';
 import ModalNumberInput from '../components/ModalNumberInput.vue';
 import TransactionLog from '../components/TransactionLog.vue';
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, nextTick } from 'vue';
 
+const isTransactionLogModalVisible = ref(false);
 const props = defineProps({
     playerCount: {  // Define playerCount as a prop
         type: Number,
@@ -72,6 +92,9 @@ const props = defineProps({
 
 const players = ref([]);
 const transactionLog = ref([]);
+const bankWalletRef = ref(null);
+const taxWalletRef = ref(null);
+const playerWalletRefs = ref({}); // ref to hold an object to store player WalletBoard refs (keyed by player name)  <- ADD THIS LINE
 
 const initializePlayers = () => {
     const playerArray = [];
@@ -175,12 +198,12 @@ const selectedWalletOrientation = ref('up');
 // Variables for drag and drop
 const dragSource = ref(null);
 
-const transactionDescription = computed(() => {
-    if (senderWalletName.value && receiverWalletName.value) {
-        return `Transaction: ${senderWalletName.value} ➡️ ${receiverWalletName.value}`;
+const clearWalletBoardHover = (walletName) => {
+    const walletBoardRef = getWalletBoardRef(walletName);
+    if (walletBoardRef && walletBoardRef.clearDropTargetHover) {
+        walletBoardRef.clearDropTargetHover();
     }
-    return '';
-});
+};
 
 // Computed property to get balance of selected wallet
 const selectedWalletBalance = computed(() => {
@@ -203,10 +226,14 @@ const handleDragStart = (event, walletName) => {
     dragSource.value = walletName;
 
     // Set data in dataTransfer to identify the dragged item
-    event.dataTransfer.setData('text/plain', walletName);
+    if (event.type !== 'touchstart') { //Only set data if event is not touchstart
+        event.dataTransfer.setData('text/plain', walletName);
+    }
 
     // Set drag effect
-    event.dataTransfer.effectAllowed = 'move';
+    if (event.type !== 'touchstart') {
+        event.dataTransfer.effectAllowed = 'move';
+    }
 
     // Add a visual effect during drag (optional)
     const wallet = event.currentTarget;
@@ -216,15 +243,21 @@ const handleDragStart = (event, walletName) => {
 };
 
 // Handle drop - initiate transaction between source and target wallets
-const handleDrop = (event, targetWalletName) => {
+const handleDrop = async (event, targetWalletName) => {
     console.log(`Drop received on wallet: ${targetWalletName}`);
-    event.preventDefault();
+    // event.preventDefault();
 
     // Remove visual effects
     document.querySelectorAll('.dragging').forEach(el => el.classList.remove('dragging'));
 
     // Get source wallet name from dataTransfer
     const sourceWalletName = dragSource.value;
+
+    // Clear any hover on the source wallet
+    clearWalletBoardHover(sourceWalletName);
+
+    // Clear any hover on the target wallet
+    clearWalletBoardHover(targetWalletName);
 
     if (sourceWalletName && sourceWalletName !== targetWalletName) {
         console.log(`Initiating transaction from ${sourceWalletName} to ${targetWalletName}`);
@@ -330,7 +363,7 @@ const handleMoneyRequest = (walletName, type) => {
 };
 
 // Function to handle value confirmation from ModalNumberInput
-const handleConfirmValue = (eventPayload) => {
+const handleConfirmValue = async (eventPayload) => {
     if (eventPayload) {
         const amount = eventPayload.amount;
         const senderName = eventPayload.senderName;
@@ -382,6 +415,27 @@ const handleConfirmValue = (eventPayload) => {
         transactionLog.value.push(transactionEntry); // Push transaction entry to CENTRALIZED transactionLog
         console.log(`Transaction logged to CENTRALIZED transaction log.`);
 
+        await nextTick();
+
+        const senderWalletBoardRef = getWalletBoardRef(senderName);
+        const receiverWalletBoardRef = getWalletBoardRef(receiverName);
+
+        // Push transaction entry to sender's transactionHistory - Re-implemented - Now pushing to INDIVIDUAL WalletBoard ref
+        if (senderWalletBoardRef) {
+            senderWalletBoardRef.pushTransaction(transactionEntry); // Push to INDIVIDUAL sender WalletBoard's transactionHistory - RE-IMPLEMENTED
+            console.log(`Transaction logged to sender wallet (${senderName}) history.`); // Log sender history update
+        } else {
+            console.log("Sender WalletBoard ref or transactionHistory ref NOT VALID for logging to sender history."); // ADDED CONSOLE LOG - ELSE BLOCK - Sender
+        }
+
+        // Push transaction entry to receiver's transactionHistory - Re-implemented - Now pushing to INDIVIDUAL WalletBoard ref
+        if (receiverWalletBoardRef) {
+            receiverWalletBoardRef.pushTransaction(transactionEntry); // Push to INDIVIDUAL receiver WalletBoard's transactionHistory - RE-IMPLEMENTED
+            console.log(`Transaction logged to receiver wallet (${receiverName}) history.`);
+        } else {
+            console.log("Receiver WalletBoard ref or transactionHistory ref NOT VALID for logging to receiver history."); // ADDED CONSOLE LOG - ELSE BLOCK - Receiver
+        }
+
         isModalVisible.value = false;
         selectedWalletName.value = null;
         transactionType.value = null;
@@ -401,6 +455,21 @@ const handleCancelModal = () => {
     receiverWalletName.value = null;
 };
 
+const getWalletBoardRef = (walletName) => {
+    if (walletName === 'Bank') {
+        return bankWalletRef.value;
+    } else if (walletName === 'Tax') {
+        return taxWalletRef.value;
+    } else {
+        const componentRef = playerWalletRefs.value[walletName]; // Access player WalletBoard ref from playerWalletRefs object using walletName as key
+        return componentRef ? componentRef : null;
+    }
+};
+
+const setPlayerWalletRef = (el, playerNum) => {
+    playerWalletRefs.value[`Player ${playerNum}`] = el;
+}
+
 const expandedWallets = ref(new Set()); // Use a Set to store names of expanded wallets - Initialize as empty Set
 
 // Function to handle wallet-clicked event from WalletBoard
@@ -416,6 +485,10 @@ const handleWalletClicked = (walletName) => {
         console.log("Wallet expanded:", walletName);
     }
 };
+
+const toggleTransactionLogModal = () => {
+    isTransactionLogModalVisible.value = !isTransactionLogModalVisible.value;
+};
 </script>
 
 <style scoped>
@@ -425,7 +498,6 @@ const handleWalletClicked = (walletName) => {
     font-family: sans-serif;
     display: flex;
     flex-direction: column;
-    min-height: 100svh;
     align-items: stretch;
 }
 
@@ -638,23 +710,30 @@ const handleWalletClicked = (walletName) => {
 /* Drag and drop styling */
 [draggable=true] {
     cursor: grab;
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: all 0.2s;
 }
 
 [draggable=true]:active {
     cursor: grabbing;
+    opacity: 0;
+    transform: all 0.2s;
 }
 
 .dragging {
     /* UPDATED .dragging CLASS - "Lifting" Effect */
     /* opacity: 0; */
     /* Slightly transparent - Remains, but can adjust */
-    transform: scale(1.05) translateY(-5px);
+    /* transform: scale(1.05) translateY(-5px); */
+    opacity: 0;
     /* UPDATED - Scale up slightly and move up for "lifting" effect */
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
     /* UPDATED - More pronounced shadow for "lifting" effect */
     transition: transform all 0.3s ease-out;
     /* UPDATED - Include transform and box-shadow in transition */
+}
+
+.modal-overlay {
+    background-color: rgba(0, 0, 0, 0.5);
 }
 
 /* Modal fade transitions */

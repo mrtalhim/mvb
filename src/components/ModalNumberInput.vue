@@ -13,11 +13,6 @@
                 <WalletBoard :name="receiverName" :balance="receiverBalance" :walletColorClass="receiverColor"
                     :expanded="expandedReceiver" @wallet-clicked="toggleExpandedReceiver" />
             </div>
-            <!-- <h2 class="text-lg font-bold mb-4 dark:text-gray-100">Enter Amount</h2>
-                :expanded="expandedReceiver" @wallet-clicked="toggleExpandedReceiver"
-            <p class="mb-2 dark:text-gray-200">Current Balance: ${{ senderBalance }}</p>
-            <p class="mb-2 dark:text-gray-200">{{ transactionDescription }}</p> -->
-
             <div
                 class="calculator-input-display bg-gray-100 p-2 rounded-md text-right font-bold mb-4 dark:bg-gray-700 dark:text-white">
                 {{ formattedInputValue }}
@@ -90,11 +85,6 @@ const props = defineProps({
     receiverBalance: {
         type: Number,
         required: true,
-    },
-    transactionDescription: {
-        type: String,
-        required: true,
-        default: '',
     },
     senderName: {      // New prop: senderName
         type: String,
