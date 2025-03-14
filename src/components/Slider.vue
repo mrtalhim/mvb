@@ -15,6 +15,8 @@
 </template>
 
 <script>
+import { watch } from 'vue';
+
 export default {
     props: {
         min: {
@@ -33,14 +35,14 @@ export default {
             type: String,
             default: '',
         },
-        initialValue: {
+        modelValue: {
             type: Number,
             default: null,
         },
     },
     data() {
         return {
-            selectedValue: this.initialValue,
+            selectedValue: this.modelValue,
         };
     },
     computed: {
@@ -55,8 +57,13 @@ export default {
     methods: {
         selectValue(value) {
             this.selectedValue = value;
-            this.$emit('input', value); // Emit input event for v-model
+            this.$emit('update:modelValue', value); // Emit update:modelValue
         },
     },
+    watch: {
+        modelValue(newVal) {
+            this.selectedValue = newVal
+        }
+    }
 };
 </script>

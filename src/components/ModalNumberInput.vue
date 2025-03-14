@@ -4,15 +4,17 @@
             :style="[modalRotationStyle, modalWidth]">
             <template v-if="props.modalOrientation === 'up' || props.modalOrientation === 'down'">
                 <div class="flex flex-row gap-2 mb-4 items-center justify-between">
-                    <WalletBoard :name="senderName" :balance="senderBalance" :walletColorClass="senderColor"
-                        :expanded="expandedSender" @wallet-clicked="toggleExpandedSender" />
+                    <WalletBoard :name="senderName" :balance="getWalletBalance(senderName)"
+                        :walletColorClass="senderColor" :expanded="expandedSender"
+                        @wallet-clicked="toggleExpandedSender" />
                     <svg class="w-24 h-24 text-black dark:text-white" viewBox="0 0 100 100" fill="none"
                         xmlns="http://www.w3.org/2000/svg">
                         <path d="M10 50 L90 50 M90 50 L70 30 M90 50 L70 70" stroke="currentColor" stroke-width="8"
                             stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
-                    <WalletBoard :name="receiverName" :balance="receiverBalance" :walletColorClass="receiverColor"
-                        :expanded="expandedReceiver" @wallet-clicked="toggleExpandedReceiver" />
+                    <WalletBoard :name="receiverName" :balance="getWalletBalance(receiverName)"
+                        :walletColorClass="receiverColor" :expanded="expandedReceiver"
+                        @wallet-clicked="toggleExpandedReceiver" />
                 </div>
                 <div
                     class="calculator-input-display bg-gray-100 p-2 rounded-md text-right font-bold mb-4 dark:bg-gray-700 dark:text-white">
@@ -116,15 +118,18 @@
                             @click="backspaceInput">⌫</button>
                     </div>
                     <div class="flex flex-row w-1/2 gap-2 mb-4 items-center justify-between max-h-[100px]">
-                        <WalletBoard :name="receiverName" :balance="receiverBalance" :walletColorClass="receiverColor"
-                            :expanded="expandedReceiver" @wallet-clicked="toggleExpandedReceiver" />
+                        <WalletBoard :name="senderName" :balance="getWalletBalance(senderName)"
+                            :walletColorClass="senderColor" :expanded="expandedSender"
+                            @wallet-clicked="toggleExpandedSender" />
                         <svg class="w-24 h-24 text-black dark:text-white" viewBox="0 0 100 100" fill="none"
                             xmlns="http://www.w3.org/2000/svg">
                             <path d="M10 50 L90 50 M90 50 L70 30 M90 50 L70 70" stroke="currentColor" stroke-width="8"
                                 stroke-linecap="round" stroke-linejoin="round" />
                         </svg>
-                        <WalletBoard :name="senderName" :balance="senderBalance" :walletColorClass="senderColor"
-                            :expanded="expandedSender" @wallet-clicked="toggleExpandedSender" />
+                        <WalletBoard :name="receiverName" :balance="getWalletBalance(receiverName)"
+                            :walletColorClass="receiverColor" :expanded="expandedReceiver"
+                            @wallet-clicked="toggleExpandedReceiver" />
+
                     </div>
                 </div>
                 <div class="modal-buttons flex justify-end space-x-2 mt-4">
@@ -268,6 +273,20 @@ const toggleExpandedReceiver = () => {
     expandedSender.value = false; // Collapse the other wallet
 };
 
+const players = inject('players');
+const bankBalance = inject('bankBalance');
+const taxBalance = inject('taxBalance');
+
+const getWalletBalance = (walletName) => {
+    if (walletName === 'Bank') {
+        return bankBalance.value;
+    } else if (walletName === 'Tax') {
+        return taxBalance.value;
+    } else {
+        const player = players.value.find(p => p.name === walletName);
+        return player ? player.balance : 0;
+    }
+};
 </script>
 
 <style scoped>
