@@ -17,7 +17,7 @@
                         @wallet-clicked="toggleExpandedReceiver" :isTappable="false" />
                 </div>
                 <div
-                    class="calculator-input-display bg-gray-100 p-2 rounded-md text-right font-bold mb-4 dark:bg-gray-700 dark:text-white">
+                    class="calculator-input-display bg-gray-100 p-2 rounded-md text-left font-bold mb-4 dark:bg-gray-700 dark:text-white">
                     {{ formattedInputValue }}
                 </div>
 
@@ -75,7 +75,7 @@
 
             <template v-else>
                 <div
-                    class="calculator-input-display bg-gray-100 p-2 rounded-md text-right font-bold mb-4 dark:bg-gray-700 dark:text-white">
+                    class="calculator-input-display bg-gray-100 p-2 rounded-md text-left font-bold mb-4 dark:bg-gray-700 dark:text-white">
                     {{ formattedInputValue }}
                 </div>
                 <div class="flex flex-row gap-2 max-h-fit">
@@ -120,7 +120,7 @@
                     <div class="flex flex-row w-1/2 gap-2 mb-4 items-center justify-between max-h-[100px]">
                         <WalletBoard :name="senderName" :balance="getWalletBalance(senderName)"
                             :walletColorClass="senderColor" :expanded="expandedSender"
-                            @wallet-clicked="toggleExpandedSender" />
+                            @wallet-clicked="toggleExpandedSender" :isTappable="false" />
                         <svg class="w-24 h-24 text-black dark:text-white" viewBox="0 0 100 100" fill="none"
                             xmlns="http://www.w3.org/2000/svg">
                             <path d="M10 50 L90 50 M90 50 L70 30 M90 50 L70 70" stroke="currentColor" stroke-width="8"
@@ -128,7 +128,7 @@
                         </svg>
                         <WalletBoard :name="receiverName" :balance="getWalletBalance(receiverName)"
                             :walletColorClass="receiverColor" :expanded="expandedReceiver"
-                            @wallet-clicked="toggleExpandedReceiver" />
+                            @wallet-clicked="toggleExpandedReceiver" :isTappable="false" />
 
                     </div>
                 </div>
