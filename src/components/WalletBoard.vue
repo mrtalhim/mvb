@@ -1,11 +1,12 @@
 <template>
     <div class="wallet-board rounded-md border-2 border-gray-300 p-4 flex flex-col items-center justify-center transition-discrete"
         :class="[walletColorClass, { 'expanded': expanded, 'drop-target-hover': isDropTargetHover, 'touch-target-hover': isTouchTargetHover }]"
-        @click.stop="$emit('wallet-clicked', name)" @dragleave="onDragLeave" @dragover="onDragOver" @drop="onDrop"
+        @click.stop="handleClick" @dragleave="onDragLeave" @dragover="onDragOver" @drop="onDrop"
         @touchstart="onTouchStart" @touchmove="onTouchMove" @touchend="onTouchEnd">
-        <div class="board-content" :style="contentRotationStyle" @dragenter="onDragEnter">
+        <div class="board-content" :style="contentRotationStyle" @dragenter="onDragEnter"
+            :class="{ 'pointer-events-none': !isTappable }">
             <!-- Container for rotated content -->
-            <button v-if="expanded" @click.stop="$emit('wallet-clicked', name)"
+            <button v-if="expanded" @click.stop="handleCloseClick"
                 class="absolute top-2 right-50% bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded-md shadow-md transition-all">
                 Close
             </button>
@@ -54,6 +55,10 @@ const props = defineProps({
     allowsRotation: {
         type: Boolean,
         default: false,
+    },
+    isTappable: {
+        type: Boolean,
+        default: true,
     }
 });
 
@@ -173,6 +178,18 @@ const onTouchEnd = (event) => {
     console.log('touch end detected')
     isTouchTargetHover.value = false;
 };
+
+const handleClick = () => {
+    if (props.isTappable) {
+        emit('wallet-clicked', props.name);
+    }
+}
+
+const handleCloseClick = () => {
+    if (props.isTappable) {
+        emit('wallet-clicked', props.name)
+    }
+}
 </script>
 
 <style scoped>
@@ -255,7 +272,6 @@ const onTouchEnd = (event) => {
     justify-content: center;
     width: 100%;
     /* Ensure content fills board width */
-    height: 100%;
     pointer-events: none;
     /* Ensure content fills board height */
     /* Rotation is now applied DYNAMICALLY using :style binding in template - NO CSS rotation here */

@@ -6,7 +6,7 @@
                 class="flex flex-row gap-2 mb-4 items-center justify-between">
                 <WalletBoard :name="transaction.senderName" :balance="getWalletBalance(transaction.senderName)"
                     :walletColorClass="getWalletColor(transaction.senderName)" :expanded="expandedSender"
-                    @wallet-clicked="toggleExpandedSender" />
+                    @wallet-clicked="toggleExpandedSender" :isTappable="false" />
                 <div class="flex flex-col items-center justify-center">
                     <svg class="w-24 h-24 text-black dark:text-white" viewBox="0 0 100 100" fill="none"
                         xmlns="http://www.w3.org/2000/svg">
@@ -17,7 +17,7 @@
                 </div>
                 <WalletBoard :name="transaction.receiverName" :balance="getWalletBalance(transaction.receiverName)"
                     :walletColorClass="getWalletColor(transaction.receiverName)" :expanded="expandedReceiver"
-                    @wallet-clicked="toggleExpandedReceiver" />
+                    @wallet-clicked="toggleExpandedReceiver" :isTappable="false" />
             </div>
             <!-- <li v-for="(transaction, index) in transactions" :key="index"
                 class="py-1 border-b border-gray-200 dark:border-gray-600 last:border-b-0">
