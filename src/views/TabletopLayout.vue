@@ -1,9 +1,14 @@
 <template>
     <div class="p-4 flex flex-col bg-gray-100 h-svh items-center" @dragover.prevent>
-        <div class="w-full pb-4 justify-center flex flex-row">
+        <div class="w-full pb-4 justify-center flex flex-row gap-4">
             <button @click="toggleTransactionLogModal"
                 class="bg-blue-500 hover:bg-blue-700 hover:shadow-md transition-all text-white font-bold py-2 px-4 rounded">Transaction
                 Log</button>
+            <button @click="openRestartConfirmationModal" class="bg-blue-500 hover:bg-blue-700 hover:shadow-md transition-all text-white font-bold py-2 px-4
+                rounded">Restart Session</button>
+
+            <button @click="goToGameConfig" class="bg-blue-500 hover:bg-blue-700 hover:shadow-md transition-all text-white font-bold py-2 px-4
+                rounded">Game Config</button>
         </div>
 
         <!-- Bank Wallet -->
@@ -32,7 +37,8 @@
                             @drop="handleDrop($event, `Player ${element.playerNum}`)" @dragover.prevent
                             @dragenter.prevent @wallet-clicked="handleWalletClicked"
                             :expanded="expandedWallets.has(`Player ${element.playerNum}`)"
-                            :ref="(el) => setPlayerWalletRef(el, element.playerNum)" />
+                            :ref="(el) => setPlayerWalletRef(el, element.playerNum)"
+                            :allowsRotation="props.tabletopMode" />
                     </div>
                 </template>
             </div>
@@ -87,6 +93,11 @@ const props = defineProps({
         type: Number,
         required: true, // Make it required - App.vue should always pass this prop
         default: 1500,
+    },
+    tabletopMode: {
+        type: Boolean,
+        required: true,
+        default: true, // default to true
     },
 });
 
@@ -182,7 +193,7 @@ onMounted(() => {
 
 // Sample Bank and Tax Balances
 const bankBalance = ref(Infinity);
-const taxBalance = ref(500);
+const taxBalance = ref(0);
 
 // Modal State
 const isModalVisible = ref(false);
@@ -282,7 +293,7 @@ const handleDrop = async (event, targetWalletName) => {
         selectedWalletName.value = sourceWalletName;
 
         // Determine orientation for the modal
-        const senderPlayerLayout = getWalletOrientation(sourceWalletName);
+        const senderPlayerLayout = props.tabletopMode ? getWalletOrientation(sourceWalletName) : 'up';
         selectedWalletOrientation.value = senderPlayerLayout || 'up';
 
         // Show transaction modal
@@ -308,6 +319,9 @@ const getWalletColor = (walletName) => {
 
 // Helper function to get wallet orientation
 const getWalletOrientation = (walletName) => {
+    if (!props.tabletopMode) { // Check if tabletopMode is false
+        return 'up';
+    }
     if (walletName === 'Bank' || walletName === 'Tax') {
         return 'up';
     }
@@ -329,36 +343,23 @@ const handleTransactionRequest = (eventPayload) => {
     selectedWalletName.value = eventPayload.senderName;
 
     // Determine orientation of the sender wallet and set selectedWalletOrientation
-    const senderPlayerLayout = layoutConfig.value[props.playerCount]?.find(layout => layout.playerNum === parseInt(eventPayload.senderName.replace('Player ', '')));
-    if (senderPlayerLayout) {
-        selectedWalletOrientation.value = senderPlayerLayout.orientation || 'up';
-    } else if (eventPayload.senderName === 'Bank' || eventPayload.senderName === 'Tax') {
+    if (!props.tabletopMode) {
         selectedWalletOrientation.value = 'up';
     } else {
-        selectedWalletOrientation.value = 'up';
+        if (eventPayload.senderName === 'Bank' || eventPayload.senderName === 'Tax') {
+            console.log(eventPayload.senderName);
+            const receiverPlayerLayout = layoutConfig.value[props.playerCount]?.find(layout => layout.playerNum === parseInt(eventPayload.receiverName.replace('Player ', '')));
+            selectedWalletOrientation.value = receiverPlayerLayout?.orientation || 'up';
+        } else if (eventPayload.senderName.startsWith('Player')) {
+            const senderPlayerLayout = layoutConfig.value[props.playerCount]?.find(layout => layout.playerNum === parseInt(eventPayload.senderName.replace('Player ', '')));
+            selectedWalletOrientation.value = senderPlayerLayout?.orientation || 'up';
+
+        } else {
+            selectedWalletOrientation.value = 'up';
+        }
     }
 
     transactionType.value = 'transfer';
-    isModalVisible.value = true;
-};
-
-// Function to handle money request from WalletBoard
-const handleMoneyRequest = (walletName, type) => {
-    selectedWalletName.value = walletName;
-    senderWalletName.value = walletName;
-    senderWalletColor.value = getWalletColor(walletName);
-    transactionType.value = type;
-
-    // Determine orientation of the selected wallet and set selectedWalletOrientation
-    const selectedPlayerLayout = layoutConfig.value[props.playerCount]?.find(layout => layout.playerNum === parseInt(walletName.replace('Player ', '')));
-    if (selectedPlayerLayout) {
-        selectedWalletOrientation.value = selectedPlayerLayout.orientation || 'up';
-    } else if (walletName === 'Bank' || walletName === 'Tax') {
-        selectedWalletOrientation.value = 'up';
-    } else {
-        selectedWalletOrientation.value = 'up';
-    }
-
     isModalVisible.value = true;
 };
 
@@ -489,6 +490,18 @@ const handleWalletClicked = (walletName) => {
 const toggleTransactionLogModal = () => {
     isTransactionLogModalVisible.value = !isTransactionLogModalVisible.value;
 };
+
+const openRestartConfirmationModal = () => {
+    console.log("Restart Session Button Clicked - Confirmation Modal to be implemented"); // Placeholder log
+    // In next steps, implement confirmation modal and restart logic here
+};
+
+// Function to go to Game Config screen - Placeholder for now
+const goToGameConfig = () => {
+    console.log("Game Config Button Clicked - Navigation to Game Config to be implemented"); // Placeholder log
+    // In next steps, implement navigation to Game Setup Config screen here
+};
+
 </script>
 
 <style scoped>

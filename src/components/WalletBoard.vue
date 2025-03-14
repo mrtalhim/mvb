@@ -6,7 +6,7 @@
         <div class="board-content" :style="contentRotationStyle" @dragenter="onDragEnter">
             <!-- Container for rotated content -->
             <button v-if="expanded" @click.stop="$emit('wallet-clicked', name)"
-                class="absolute top-2 right-2 bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded-md shadow-md transition-all">
+                class="absolute top-2 right-50% bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded-md shadow-md transition-all">
                 Close
             </button>
             <h3 class="player-name text-md text-center text-black">{{ name }}</h3>
@@ -51,6 +51,10 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    allowsRotation: {
+        type: Boolean,
+        default: false,
+    }
 });
 
 const transactionHistory = ref([]); // Reactive array to store transaction history for each wallet
@@ -118,12 +122,14 @@ function formatCurrency(amount) {
 
 const contentRotationStyle = computed(() => {
     let rotation = 'rotate(0deg)'; // Default rotation (no rotation)
-    if (props.orientation === 'down') {
-        rotation = 'rotate(180deg)';
-    } else if (props.orientation === 'left') {
-        rotation = 'rotate(90deg)';
-    } else if (props.orientation === 'right') {
-        rotation = 'rotate(-90deg)';
+    if (props.allowsRotation) {
+        if (props.orientation === 'down') {
+            rotation = 'rotate(180deg)';
+        } else if (props.orientation === 'left') {
+            rotation = 'rotate(90deg)';
+        } else if (props.orientation === 'right') {
+            rotation = 'rotate(-90deg)';
+        }
     }
     return {
         transform: rotation, // Apply rotation using CSS transform: rotate()

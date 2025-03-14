@@ -5,27 +5,32 @@
         <div class="form-group mb-4">
             <label for="playerCount" class="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2">Number of
                 Players:</label>
-            <select id="playerCount" v-model="localPlayerCount"
-                class="shadow border rounded w-full p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                <option value="2">2 Players</option>
-                <option value="3">3 Players</option>
-                <option value="4">4 Players</option>
-                <option value="5">5 Players</option>
-                <option value="6">6 Players</option>
-                <option value="7">7 Players</option>
-                <option value="8">8 Players</option>
-            </select>
+            <Slider id="playerCount" v-model="localPlayerCount" :min="2" :max="8" :step="1" label="Players"
+                class="shadow border rounded w-full p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                :initialValue="props.initialPlayerCount" />
+
         </div>
 
         <div class="form-group mb-4">
             <label for="startingMoney" class="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2">Starting
                 Money:</label>
-            <input type="number" id="startingMoney" v-model.number="localStartingMoney"
-                class="shadow border rounded w-full p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+            <SliderTwo id="startingMoney" v-model="localStartingMoney" :min="1000" :max="5000" :step="100"
+                label="Starting Money" />
         </div>
 
+        <div class="form-group mb-4">
+            <div class="flex items-center">
+                <input type="checkbox" id="tabletopMode" v-model="localTabletopMode"
+                    class="mr-2 form-checkbox h-5 w-5 text-blue-600 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                <label for="tabletopMode" class="text-gray-700 dark:text-gray-300 text-sm font-bold">Tabletop
+                    Mode</label>
+            </div>
+        </div>
+
+
         <div class="form-buttons flex justify-end space-x-2">
-            <button class="start-game-button bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded"
+            <button
+                class="start-game-button bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition-all"
                 @click="startGame">
                 Start Game
             </button>
@@ -35,6 +40,8 @@
 
 <script setup>
 import { ref } from 'vue';
+import Slider from './Slider.vue';
+import SliderTwo from './SliderTwo.vue';
 
 const props = defineProps({
     initialPlayerCount: {
@@ -51,15 +58,18 @@ const emit = defineEmits(['game-start', 'config-updated']);
 
 const localPlayerCount = ref(props.initialPlayerCount);
 const localStartingMoney = ref(props.initialStartingMoney);
+const localTabletopMode = ref(true); // Default to true (on)
 
 const startGame = () => {
     emit('game-start', {
         playerCount: localPlayerCount.value,
         startingMoney: localStartingMoney.value,
+        tabletopMode: localTabletopMode.value, // Pass the tabletopMode value
     });
-    emit('config-updated', { // Also emit config-updated event for immediate config update
+    emit('config-updated', {
         playerCount: localPlayerCount.value,
         startingMoney: localStartingMoney.value,
+        tabletopMode: localTabletopMode.value,
     });
 };
 </script>
@@ -68,7 +78,7 @@ const startGame = () => {
 @reference "../style.css";
 
 .game-setup-config {
-    min-width: 400px;
+    @apply absolute z-50 max-w-[800px] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 items-center justify-center;
     /* Example min width for the config modal */
 }
 
@@ -78,7 +88,7 @@ const startGame = () => {
 }
 
 .form-group input[type="number"],
-.form-group select {
+.form-group .slider-container {
     width: 100%;
     /* Make input and select full width */
     padding: 0.5rem;

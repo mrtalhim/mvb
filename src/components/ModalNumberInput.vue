@@ -1,74 +1,145 @@
 <template>
     <div class="modal-overlay fixed inset-0 flex backdrop-blur-md items-center justify-center">
         <div class="modal-content bg-white p-6 rounded-md shadow-lg dark:bg-gray-800 dark:text-white"
-            :style="modalRotationStyle">
-            <div class="flex flex-row gap-2 mb-4 items-center justify-between">
-                <WalletBoard :name="senderName" :balance="senderBalance" :walletColorClass="senderColor"
-                    :expanded="expandedSender" @wallet-clicked="toggleExpandedSender" />
-                <svg class="w-24 h-24 text-black dark:text-white" viewBox="0 0 100 100" fill="none"
-                    xmlns="http://www.w3.org/2000/svg">
-                    <path d="M10 50 L90 50 M90 50 L70 30 M90 50 L70 70" stroke="currentColor" stroke-width="8"
-                        stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-                <WalletBoard :name="receiverName" :balance="receiverBalance" :walletColorClass="receiverColor"
-                    :expanded="expandedReceiver" @wallet-clicked="toggleExpandedReceiver" />
-            </div>
-            <div
-                class="calculator-input-display bg-gray-100 p-2 rounded-md text-right font-bold mb-4 dark:bg-gray-700 dark:text-white">
-                {{ formattedInputValue }}
-            </div>
+            :style="[modalRotationStyle, modalWidth]">
+            <template v-if="props.modalOrientation === 'up' || props.modalOrientation === 'down'">
+                <div class="flex flex-row gap-2 mb-4 items-center justify-between">
+                    <WalletBoard :name="senderName" :balance="senderBalance" :walletColorClass="senderColor"
+                        :expanded="expandedSender" @wallet-clicked="toggleExpandedSender" />
+                    <svg class="w-24 h-24 text-black dark:text-white" viewBox="0 0 100 100" fill="none"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <path d="M10 50 L90 50 M90 50 L70 30 M90 50 L70 70" stroke="currentColor" stroke-width="8"
+                            stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <WalletBoard :name="receiverName" :balance="receiverBalance" :walletColorClass="receiverColor"
+                        :expanded="expandedReceiver" @wallet-clicked="toggleExpandedReceiver" />
+                </div>
+                <div
+                    class="calculator-input-display bg-gray-100 p-2 rounded-md text-right font-bold mb-4 dark:bg-gray-700 dark:text-white">
+                    {{ formattedInputValue }}
+                </div>
 
-            <div class="calculator-grid grid grid-cols-3 gap-2">
-                <button
-                    class="calculator-button bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded py-2 font-bold transition-colors duration-200"
-                    @click="appendValue('1')">1</button>
-                <button
-                    class="calculator-button bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded py-2 font-bold transition-colors duration-200"
-                    @click="appendValue('2')">2</button>
-                <button
-                    class="calculator-button bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded py-2 font-bold transition-colors duration-200"
-                    @click="appendValue('3')">3</button>
-                <button
-                    class="calculator-button bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded py-2 font-bold transition-colors duration-200"
-                    @click="appendValue('4')">4</button>
-                <button
-                    class="calculator-button bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded py-2 font-bold transition-colors duration-200"
-                    @click="appendValue('5')">5</button>
-                <button
-                    class="calculator-button bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded py-2 font-bold transition-colors duration-200"
-                    @click="appendValue('6')">6</button>
-                <button
-                    class="calculator-button bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded py-2 font-bold transition-colors duration-200"
-                    @click="appendValue('7')">7</button>
-                <button
-                    class="calculator-button bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded py-2 font-bold transition-colors duration-200"
-                    @click="appendValue('8')">8</button>
-                <button
-                    class="calculator-button bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded py-2 font-bold transition-colors duration-200"
-                    @click="appendValue('9')">9</button>
-                <button
-                    class="calculator-button bg-red-400 hover:bg-red-500 dark:bg-red-700 dark:hover:bg-red-800 text-white rounded py-2 font-bold transition-colors duration-200"
-                    @click="clearInput">C</button>
-                <button
-                    class="calculator-button bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded py-2 font-bold transition-colors duration-200"
-                    @click="appendValue('0')">0</button>
-                <button
-                    class="calculator-button bg-yellow-400 hover:bg-yellow-500 dark:bg-yellow-700 dark:hover:bg-yellow-800 rounded py-2 font-bold transition-colors duration-200"
-                    @click="backspaceInput">⌫</button>
-            </div>
+                <div class="calculator-grid grid grid-cols-3 gap-2">
+                    <button
+                        class="calculator-button bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded py-2 font-bold transition-colors duration-200"
+                        @click="appendValue('1')">1</button>
+                    <button
+                        class="calculator-button bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded py-2 font-bold transition-colors duration-200"
+                        @click="appendValue('2')">2</button>
+                    <button
+                        class="calculator-button bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded py-2 font-bold transition-colors duration-200"
+                        @click="appendValue('3')">3</button>
+                    <button
+                        class="calculator-button bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded py-2 font-bold transition-colors duration-200"
+                        @click="appendValue('4')">4</button>
+                    <button
+                        class="calculator-button bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded py-2 font-bold transition-colors duration-200"
+                        @click="appendValue('5')">5</button>
+                    <button
+                        class="calculator-button bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded py-2 font-bold transition-colors duration-200"
+                        @click="appendValue('6')">6</button>
+                    <button
+                        class="calculator-button bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded py-2 font-bold transition-colors duration-200"
+                        @click="appendValue('7')">7</button>
+                    <button
+                        class="calculator-button bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded py-2 font-bold transition-colors duration-200"
+                        @click="appendValue('8')">8</button>
+                    <button
+                        class="calculator-button bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded py-2 font-bold transition-colors duration-200"
+                        @click="appendValue('9')">9</button>
+                    <button
+                        class="calculator-button bg-red-400 hover:bg-red-500 dark:bg-red-700 dark:hover:bg-red-800 text-white rounded py-2 font-bold transition-colors duration-200"
+                        @click="clearInput">C</button>
+                    <button
+                        class="calculator-button bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded py-2 font-bold transition-colors duration-200"
+                        @click="appendValue('0')">0</button>
+                    <button
+                        class="calculator-button bg-yellow-400 hover:bg-yellow-500 dark:bg-yellow-700 dark:hover:bg-yellow-800 rounded py-2 font-bold transition-colors duration-200"
+                        @click="backspaceInput">⌫</button>
+                </div>
+                <div class="modal-buttons flex justify-end space-x-2 mt-4">
+                    <button
+                        class="confirm-button bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded dark:bg-green-700 dark:hover:bg-green-800"
+                        @click="confirmInput">
+                        Confirm
+                    </button>
+                    <button
+                        class="cancel-button bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-2 px-4 rounded dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-100 transition-colors duration-200"
+                        @click="cancelInput">
+                        Cancel
+                    </button>
+                </div>
+            </template>
 
-            <div class="modal-buttons flex justify-end space-x-2 mt-4">
-                <button
-                    class="confirm-button bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded dark:bg-green-700 dark:hover:bg-green-800"
-                    @click="confirmInput">
-                    Confirm
-                </button>
-                <button
-                    class="cancel-button bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-2 px-4 rounded dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-100 transition-colors duration-200"
-                    @click="cancelInput">
-                    Cancel
-                </button>
-            </div>
+            <template v-else>
+                <div
+                    class="calculator-input-display bg-gray-100 p-2 rounded-md text-right font-bold mb-4 dark:bg-gray-700 dark:text-white">
+                    {{ formattedInputValue }}
+                </div>
+                <div class="flex flex-row gap-2 max-h-fit">
+                    <div class="calculator-grid grid grid-cols-3 gap-2 w-1/2 max-h-[100px]">
+                        <button
+                            class="calculator-button bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded py-2 font-bold transition-colors duration-200"
+                            @click="appendValue('1')">1</button>
+                        <button
+                            class="calculator-button bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded py-2 font-bold transition-colors duration-200"
+                            @click="appendValue('2')">2</button>
+                        <button
+                            class="calculator-button bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded py-2 font-bold transition-colors duration-200"
+                            @click="appendValue('3')">3</button>
+                        <button
+                            class="calculator-button bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded py-2 font-bold transition-colors duration-200"
+                            @click="appendValue('4')">4</button>
+                        <button
+                            class="calculator-button bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded py-2 font-bold transition-colors duration-200"
+                            @click="appendValue('5')">5</button>
+                        <button
+                            class="calculator-button bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded py-2 font-bold transition-colors duration-200"
+                            @click="appendValue('6')">6</button>
+                        <button
+                            class="calculator-button bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded py-2 font-bold transition-colors duration-200"
+                            @click="appendValue('7')">7</button>
+                        <button
+                            class="calculator-button bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded py-2 font-bold transition-colors duration-200"
+                            @click="appendValue('8')">8</button>
+                        <button
+                            class="calculator-button bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded py-2 font-bold transition-colors duration-200"
+                            @click="appendValue('9')">9</button>
+                        <button
+                            class="calculator-button bg-red-400 hover:bg-red-500 dark:bg-red-700 dark:hover:bg-red-800 text-white rounded py-2 font-bold transition-colors duration-200"
+                            @click="clearInput">C</button>
+                        <button
+                            class="calculator-button bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 rounded py-2 font-bold transition-colors duration-200"
+                            @click="appendValue('0')">0</button>
+                        <button
+                            class="calculator-button bg-yellow-400 hover:bg-yellow-500 dark:bg-yellow-700 dark:hover:bg-yellow-800 rounded py-2 font-bold transition-colors duration-200"
+                            @click="backspaceInput">⌫</button>
+                    </div>
+                    <div class="flex flex-row w-1/2 gap-2 mb-4 items-center justify-between max-h-[100px]">
+                        <WalletBoard :name="receiverName" :balance="receiverBalance" :walletColorClass="receiverColor"
+                            :expanded="expandedReceiver" @wallet-clicked="toggleExpandedReceiver" />
+                        <svg class="w-24 h-24 text-black dark:text-white" viewBox="0 0 100 100" fill="none"
+                            xmlns="http://www.w3.org/2000/svg">
+                            <path d="M10 50 L90 50 M90 50 L70 30 M90 50 L70 70" stroke="currentColor" stroke-width="8"
+                                stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                        <WalletBoard :name="senderName" :balance="senderBalance" :walletColorClass="senderColor"
+                            :expanded="expandedSender" @wallet-clicked="toggleExpandedSender" />
+                    </div>
+                </div>
+                <div class="modal-buttons flex justify-end space-x-2 mt-4">
+                    <button
+                        class="confirm-button bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded dark:bg-green-700 dark:hover:bg-green-800"
+                        @click="confirmInput">
+                        Confirm
+                    </button>
+                    <button
+                        class="cancel-button bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-2 px-4 rounded dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-100 transition-colors duration-200"
+                        @click="cancelInput">
+                        Cancel
+                    </button>
+                </div>
+            </template>
         </div>
     </div>
 </template>
@@ -172,6 +243,18 @@ const modalRotationStyle = computed(() => { // NEW - modalContentRotationStyle c
     };
 });
 
+const modalWidth = computed(() => {
+    if (props.modalOrientation === 'down' || props.modalOrientation === 'up') {
+        return {
+            "min-width": '300px',
+        };
+    } else if (props.modalOrientation === 'right' || props.modalOrientation === 'left') {
+        return {
+            "min-width": '500px',
+        };
+    }
+})
+
 const expandedSender = ref(false);
 const expandedReceiver = ref(false);
 
@@ -196,12 +279,6 @@ const toggleExpandedReceiver = () => {
 }
 
 .modal-content {
-    min-width: 300px;
-    /* Dark mode background and text color are now in template using dark:bg-gray-* and dark:text-white */
-}
-
-/* We can remove background color from .modal-content in <style> as it's now in template with dark: variant */
-.modal-content {
     /* No background color here anymore - defined in template with dark:bg-* */
     @apply p-6 rounded-md shadow-lg;
     /* Keep padding, rounded, shadow */
@@ -217,7 +294,6 @@ const toggleExpandedReceiver = () => {
     width: 100%;
     margin-bottom: 1rem;
 }
-
 
 /* Button dark mode styles are now in template using dark:bg-*, dark:hover:bg-*, dark:text-* */
 .confirm-button {
