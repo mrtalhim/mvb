@@ -150,7 +150,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, inject } from 'vue';
 import WalletBoard from './WalletBoard.vue';
 
 const props = defineProps({
