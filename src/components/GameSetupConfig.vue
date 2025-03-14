@@ -39,7 +39,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import Slider from './Slider.vue';
 import SliderTwo from './SliderTwo.vue';
 
@@ -59,6 +59,10 @@ const emit = defineEmits(['game-start', 'config-updated']);
 const localPlayerCount = ref(props.initialPlayerCount);
 const localStartingMoney = ref(props.initialStartingMoney);
 const localTabletopMode = ref(true); // Default to true (on)
+
+watch(localPlayerCount, (newCount) => console.log('Player count updated:', newCount));
+watch(localStartingMoney, (newMoney) => console.log('Starting money updated:', newMoney));
+watch(localTabletopMode, (newMode) => console.log('Tabletop mode updated:', newMode));
 
 const startGame = () => {
     emit('game-start', {

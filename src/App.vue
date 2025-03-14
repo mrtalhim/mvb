@@ -2,7 +2,8 @@
   <GameSetupConfig v-if="!gameStarted" :initialPlayerCount="initialPlayerCount"
     :initialStartingMoney="initialStartingMoney" @game-start="onGameStart" @config-updated="updateConfig" />
   <!-- Render GameSetupConfig if game not started -->
-  <TabletopLayout v-else :playerCount="playerCount" :startingMoney="startingMoney" :tabletopMode="tabletopMode" />
+  <TabletopLayout v-else :playerCount="playerCount" :startingMoney="startingMoney" :tabletopMode="tabletopMode"
+    @restart-game="onRestartGame" />
 </template>
 
 <script setup>
@@ -32,5 +33,11 @@ const updateConfig = (config) => {
   startingMoney.value = config.startingMoney;
   tabletopMode.value = config.tabletopMode; // Update tabletopMode ref
   console.log("Config Updated:", config);
+};
+
+// +++ NEW FUNCTION - Restart Event Handler
+const onRestartGame = () => {
+  console.log("Restart Game Event Received");
+  gameStarted.value = false;
 };
 </script>

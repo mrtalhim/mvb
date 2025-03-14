@@ -2,13 +2,9 @@
     <div class="p-4 flex flex-col bg-gray-100 h-svh items-center" @dragover.prevent>
         <div class="w-full pb-4 justify-center flex flex-row gap-4">
             <button @click="toggleTransactionLogModal"
-                class="bg-blue-500 hover:bg-blue-700 hover:shadow-md transition-all text-white font-bold py-2 px-4 rounded">Transaction
-                Log</button>
+                class="bg-blue-500 hover:bg-blue-700 hover:shadow-md transition-all text-white font-bold py-2 px-4 rounded">History</button>
             <button @click="openRestartConfirmationModal" class="bg-blue-500 hover:bg-blue-700 hover:shadow-md transition-all text-white font-bold py-2 px-4
-                rounded">Restart Session</button>
-
-            <button @click="goToGameConfig" class="bg-blue-500 hover:bg-blue-700 hover:shadow-md transition-all text-white font-bold py-2 px-4
-                rounded">Game Config</button>
+                rounded">Restart</button>
         </div>
 
         <!-- Bank Wallet -->
@@ -72,6 +68,28 @@
                     </div>
                 </div>
             </Transition>
+
+            <Transition name="modal-fade">
+                <div v-if="isRestartConfirmationModalVisible"
+                    class="modal-overlay fixed inset-0 flex items-center justify-center z-50">
+                    <div class="modal-content bg-white p-6 rounded-md shadow-lg dark:bg-gray-800 dark:text-white">
+                        <h3 class="text-lg font-bold mb-4">Confirm Restart</h3>
+                        <p class="mb-4">Are you sure you want to restart the game? All progress will be lost.</p>
+                        <div class="modal-buttons flex justify-end space-x-2">
+                            <button
+                                class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded dark:bg-green-700 dark:hover:bg-green-800"
+                                @click="restartGame">
+                                Yes, Restart
+                            </button>
+                            <button
+                                class="bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-2 px-4 rounded dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-100 transition-colors duration-200"
+                                @click="closeRestartConfirmationModal">
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </Transition>
         </div>
     </div>
 </template>
@@ -80,7 +98,10 @@
 import WalletBoard from '../components/WalletBoard.vue';
 import ModalNumberInput from '../components/ModalNumberInput.vue';
 import TransactionLog from '../components/TransactionLog.vue';
-import { ref, computed, onMounted, nextTick } from 'vue';
+import { ref, computed, onMounted, nextTick, provide } from 'vue';
+
+const emit = defineEmits(['restart-game']);
+const isRestartConfirmationModalVisible = ref(false);
 
 const isTransactionLogModalVisible = ref(false);
 const props = defineProps({
@@ -208,6 +229,10 @@ const selectedWalletOrientation = ref('up');
 
 // Variables for drag and drop
 const dragSource = ref(null);
+
+provide('bankBalance', bankBalance);
+provide('taxBalance', taxBalance);
+provide('players', players);
 
 const clearWalletBoardHover = (walletName) => {
     const walletBoardRef = getWalletBoardRef(walletName);
@@ -492,16 +517,20 @@ const toggleTransactionLogModal = () => {
 };
 
 const openRestartConfirmationModal = () => {
-    console.log("Restart Session Button Clicked - Confirmation Modal to be implemented"); // Placeholder log
-    // In next steps, implement confirmation modal and restart logic here
+    isRestartConfirmationModalVisible.value = true;
 };
 
-// Function to go to Game Config screen - Placeholder for now
-const goToGameConfig = () => {
-    console.log("Game Config Button Clicked - Navigation to Game Config to be implemented"); // Placeholder log
-    // In next steps, implement navigation to Game Setup Config screen here
+// +++ NEW FUNCTION - Close Restart Confirmation Modal
+const closeRestartConfirmationModal = () => {
+    isRestartConfirmationModalVisible.value = false;
 };
 
+// +++ NEW FUNCTION - Restart Game (triggered by modal)
+const restartGame = () => {
+    console.log("Restarting Game - Emitting Event");
+    emit('restart-game'); // Emit the restart event
+    isRestartConfirmationModalVisible.value = false; // Close the modal
+};
 </script>
 
 <style scoped>
