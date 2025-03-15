@@ -2,7 +2,8 @@
     <div class="w-full relative">
         <div class="flex">
             <div v-for="value in range" :key="value"
-                class="grow p-2 cursor-pointer transition-all duration-200 ease-in-out text-center rounded-none" :class="[
+                class="grow p-2 cursor-pointer transition-all transition-discrete duration-200 ease-in-out text-center rounded-none"
+                :class="[
                     value !== selectedValue ? 'bg-gray-300' : 'bg-blue-500 shadow-md',
                     value === min ? 'rounded-l-2xl' : '',
                     value === max ? 'rounded-r-2xl' : '',

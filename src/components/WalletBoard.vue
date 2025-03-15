@@ -10,7 +10,7 @@
                 class="absolute top-2 right-50% bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded-md shadow-md transition-all">
                 Close
             </button>
-            <h3 class="player-name text-md text-center text-black">{{ name }}</h3>
+            <h3 class="player-name text-md text-center text-black max-w-[100px]">{{ name }}</h3>
             <Transition name="balance-update-transition" mode="out-in"> <!-- Transition component wrapping balance -->
                 <p class="balance text-2xl font-bold text-center text-black" :key="displayBalance">{{ displayBalance }}
                 </p>
@@ -102,7 +102,7 @@ const formatCurrencyAbbreviated = (amount) => {
     if (amount >= 1000000) {
         return `$${(amount / 1000000).toFixed(1)}M`; // Millions, 1 decimal place
     }
-    if (amount >= 1000) {
+    if (amount >= 100000) {
         return `$${(amount / 1000).toFixed(1)}K`;    // Thousands, 1 decimal place
     }
     return `$${amount}`; // No abbreviation for amounts less than 1000

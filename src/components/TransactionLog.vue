@@ -1,9 +1,9 @@
 <template>
-    <div class="transaction-log-component w-full">
+    <div class="transaction-log-component items-center justify-center">
         <h2 class="text-lg font-bold mb-2 text-center">{{ title }}</h2>
-        <ul class="border rounded-md p-2 bg-white dark:bg-gray-800 dark:text-white">
+        <div class="border rounded-md p-2 bg-white dark:bg-gray-800 w-full dark:text-white items-center justify-center">
             <div v-for="(transaction, index) in transactions" :key="index"
-                class="flex flex-row gap-2 mb-4 items-center justify-between">
+                class="flex flex-row gap-2 mb-4 items-center justify-between ">
                 <WalletBoard :name="transaction.senderName" :balance="getWalletBalance(transaction.senderName)"
                     :walletColorClass="getWalletColor(transaction.senderName)" :expanded="expandedSender"
                     @wallet-clicked="toggleExpandedSender" :isTappable="false" />
@@ -24,10 +24,10 @@
                 {{ transaction.timestamp }} - {{ transaction.senderName }} ➡️ {{ transaction.receiverName }}:
                 ${{ transaction.amount }}
             </li> -->
-            <li v-if="transactions.length === 0" class="text-gray-500 py-1 text-center dark:text-gray-400">
+            <p v-if="transactions.length === 0" class="text-gray-500 py-1 text-center dark:text-gray-400">
                 No transactions yet.
-            </li>
-        </ul>
+            </p>
+        </div>
     </div>
 </template>
 
