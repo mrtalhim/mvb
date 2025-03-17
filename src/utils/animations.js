@@ -1,27 +1,27 @@
 import { gsap } from "gsap";
 
-const beforeEnterModal = (el) => {
+export const beforeEnterModal = (el) => {
     gsap.set(el, { opacity: 0, y: 100 }); // Initial state
 };
 
-const enterModal = (el, done) => {
+export const enterModal = (el, done) => {
     gsap.to(el, {
-
         opacity: 1,
         duration: 0.3,
         y: 0,
         ease: 'power4.out',
         onComplete: done,
     });
+
 };
 
-const leaveModal = (el, done) => {
+export const leaveModal = (el, done) => {
     gsap.to(el, {
-
         opacity: 0,
         duration: 0.3,
         y: 100,
         ease: 'power2.in',
         onComplete: done,
     });
+
 };
