@@ -48,7 +48,7 @@
             </div>
 
             <!-- Modal Number Input (remains same) -->
-            <Transition name="modal-fade">
+            <Transition @before-enter="beforeEnterModal" @enter="enterModal" @leave="leaveModal">
                 <ModalNumberInput v-if="isModalVisible" :senderBalance="selectedWalletBalance"
                     :receiverBalance="receiverWalletBalance" :senderName="senderWalletName"
                     :senderColor="senderWalletColor" :receiverName="receiverWalletName"
@@ -57,7 +57,7 @@
             </Transition>
 
             <!-- Transaction Log Modal -->
-            <Transition name="modal-fade">
+            <Transition @before-enter="beforeEnterModal" @enter="enterModal" @leave="leaveModal">
                 <div v-if="isTransactionLogModalVisible"
                     class="modal-overlay fixed inset-0 flex items-center justify-center z-50">
                     <div
@@ -69,7 +69,7 @@
                 </div>
             </Transition>
 
-            <Transition name="modal-fade">
+            <Transition @before-enter="beforeEnterModal" @enter="enterModal" @leave="leaveModal">
                 <div v-if="isRestartConfirmationModalVisible"
                     class="modal-overlay fixed inset-0 flex items-center justify-center z-50">
                     <div class="modal-content bg-white p-6 rounded-md shadow-lg dark:bg-gray-800 dark:text-white">
@@ -98,7 +98,13 @@
 import WalletBoard from '../components/WalletBoard.vue';
 import ModalNumberInput from '../components/ModalNumberInput.vue';
 import TransactionLog from '../components/TransactionLog.vue';
+import { beforeEnterModal, enterModal, leaveModal } from '../utils/animations';
 import { ref, computed, onMounted, nextTick, provide } from 'vue';
+
+import { gsap } from 'gsap'; // Import GSAP
+import { Draggable } from 'gsap/Draggable'; // Import Draggable if you want to use it
+import { CSSPlugin } from 'gsap/CSSPlugin'; // Import CSSPlugin if you want to use it
+gsap.registerPlugin(Draggable, CSSPlugin); // Register the plugins
 
 const emit = defineEmits(['restart-game']);
 const isRestartConfirmationModalVisible = ref(false);
@@ -772,26 +778,6 @@ const restartGame = () => {
     /* UPDATED - More pronounced shadow for "lifting" effect */
     transition: transform all 0.3s ease-out;
     /* UPDATED - Include transform and box-shadow in transition */
-}
-
-.modal-overlay {
-    background-color: rgba(0, 0, 0, 0.5);
-}
-
-/* Modal fade transitions */
-.modal-fade-enter-from,
-.modal-fade-leave-to {
-    @apply scale-95 opacity-0;
-}
-
-.modal-fade-enter-active,
-.modal-fade-leave-active {
-    transition: all 0.3s ease-out;
-}
-
-.modal-fade-enter-to,
-.modal-fade-leave-from {
-    @apply scale-100 opacity-100;
 }
 
 @media (orientation: landscape) {
