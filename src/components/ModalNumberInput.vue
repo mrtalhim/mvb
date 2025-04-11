@@ -293,7 +293,7 @@ const getWalletBalance = (walletName) => {
 @reference "../style.css";
 
 .modal-overlay {
-    z-index: 50;
+    z-index: 9999;
     /* Dark mode background opacity and color are now in template using dark:bg-opacity-* and dark:bg-gray-* */
 }
 

@@ -7,16 +7,15 @@
                 rounded">Restart</button>
         </div>
 
-        <!-- Bank Wallet -->
-        <div class="tabletop-layout w-full flex-1">
-
+        <div class="tabletop-layout w-full flex-1 gap-2">
+            <!-- Bank Wallet -->
             <div class="bank-area mb-4">
                 <WalletBoard name="Bank" :balance="bankBalance" isBank @transaction-requested="handleTransactionRequest"
                     draggable="true" @dragstart="handleDragStart($event, 'Bank')" @drop="handleDrop($event, 'Bank')"
                     @dragover.prevent @dragenter.prevent ref="bankWalletRef" />
             </div>
 
-            <div class="layout-grid grid">
+            <div class="layout-grid grid h-full">
                 <!-- Show fallback message if layout config doesn't exist -->
                 <div v-if="!layoutConfig[playerCount]" class="col-span-full">
                     <p class="text-red-500 text-center">Layout not configured for {{ playerCount }} players.</p>
@@ -210,13 +209,195 @@ const generateLayoutConfig = (playerCount) => {
 };
 
 const layoutConfig = ref({}); // Initialize as empty ref
+const lastDropTargetWalletName = ref(null);
 
 onMounted(() => {
     layoutConfig.value = generateLayoutConfig(props.playerCount);
     console.log("Initial Player Count (onMounted):", props.playerCount);
     players.value = initializePlayers();
     console.log("Initial Layout Config (onMounted):", layoutConfig.value);
+
+    nextTick(() => {
+        const walletElements = document.querySelectorAll('.wallet-board-draggable');
+        const hitPercentage = '40%';
+        walletElements.forEach((wallet, i) => {
+            Draggable.create(wallet, {
+                inertia: true,
+                cursor: 'grab',
+                activeCursor: 'grabbing',
+                onDragStart: function () {
+                    handleDragStart({ currentTarget: this.target, type: 'mousedown' }, this.target.dataset.walletName);
+
+                    // +++ Get absolute position using getBoundingClientRect() +++
+                    const rect = this.target.getBoundingClientRect();
+                    this.target.dataset.initialLeft = rect.left;
+                    this.target.dataset.initialTop = rect.top;
+                    this.target.dataset.originalWidth = this.target.offsetWidth;
+                    this.target.dataset.originalHeight = this.target.offsetHeight;
+
+                    // +++ LOG ORIGINAL WIDTH AND HEIGHT +++
+                    console.log("onDragStart - originalWidth:", this.target.dataset.originalWidth, "originalHeight:", this.target.dataset.originalHeight);
+
+                    gsap.to(this.target, {
+                        duration: 0.1,
+                        scale: 1.05,
+                        width: 100,
+                        height: 100,
+                        y: -5,
+                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1)',
+                        zIndex: 100
+                    });
+
+                    gsap.to(walletElements, {
+                        duration: 0.1,
+                        opacity: (i, t) => (t == this.target) ? 1 : 0.3
+                    });
+                },
+                onDrag: function () {
+                    // --- GSAP Highlight Logic based on hitTest - REFINED ---
+                    const draggedWalletName = this.target.dataset.walletName;
+                    const dropTargets = walletElements;
+
+                    let currentHighlightedWalletName = null;
+
+                    dropTargets.forEach(target => {
+                        if (target !== this.target && this.hitTest(target, hitPercentage)) {
+                            currentHighlightedWalletName = target.dataset.walletName;
+                        }
+                    });
+
+                    if (currentHighlightedWalletName) {
+                        if (currentHighlightedWalletName !== lastDropTargetWalletName.value) {
+                            // New target highlighted
+                            const prevHighlightedWalletName = lastDropTargetWalletName.value;
+                            lastDropTargetWalletName.value = currentHighlightedWalletName;
+
+                            dropTargets.forEach(target => {
+                                const targetWalletName = target.dataset.walletName;
+                                if (targetWalletName === currentHighlightedWalletName) {
+                                    gsap.to(target, { // GSAP for highlight - SHORT DURATION
+                                        duration: 0.1, // Reduced duration for snappier response
+                                        border: '5px solid red',
+                                        backgroundColor: 'yellow',
+                                        scale: 1.1,
+                                        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)'
+                                    });
+                                    console.log("GSAP ADD highlight styles to:", currentHighlightedWalletName);
+                                } else if (targetWalletName === prevHighlightedWalletName) {
+                                    gsap.to(target, { // GSAP to remove highlight from PREVIOUS target - SHORT DURATION
+                                        duration: 0.1, // Reduced duration for snappier response
+                                        border: '',
+                                        backgroundColor: '',
+                                        scale: 1,
+                                        boxShadow: ''
+                                    });
+                                    console.log("GSAP REMOVE highlight styles from:", prevHighlightedWalletName);
+                                }
+                            });
+                        }
+                    } else {
+                        // No target highlighted
+                        if (lastDropTargetWalletName.value) {
+                            const prevHighlightedWalletName = lastDropTargetWalletName.value;
+                            lastDropTargetWalletName.value = null;
+                            dropTargets.forEach(target => {
+                                const targetWalletName = target.dataset.walletName;
+                                if (targetWalletName === prevHighlightedWalletName) {
+                                    gsap.to(target, { // GSAP to remove highlight when no target - SHORT DURATION
+                                        duration: 0.1, // Reduced duration for snappier response
+                                        border: '',
+                                        backgroundColor: '',
+                                        scale: 1,
+                                        boxShadow: ''
+                                    });
+                                    console.log("GSAP REMOVE highlight styles (no cursor) from:", prevHighlightedWalletName);
+                                }
+                            });
+                        }
+                    }
+
+
+                    // --- Proximity-based visual feedback (opacity and scale) - KEEP and adjust duration ---
+                    var i = walletElements.length;
+                    while (--i > -1) {
+                        if (this.hitTest(walletElements[i], hitPercentage)) {
+                            gsap.to(walletElements[i], {
+                                opacity: 1,
+                                scale: 1.1,
+                                translateX: 0,
+                                translateY: 0,
+                                yoyo: false, // set to false for direct animation
+                                duration: 0.1, // Reduced duration
+                                transformOrigin: "50% 50%" // Centered transformOrigin
+                            });
+                        } else if (this.target != walletElements[i]) {
+                            gsap.to(walletElements[i], {
+                                opacity: 0.3,
+                                scale: 1,
+                                yoyo: false, // set to false for direct animation
+                                duration: 0.1, // Reduced duration
+                                transformOrigin: "50% 50%" // Centered transformOrigin
+                            });
+                        }
+                    }
+                },
+                onDragEnd: function () {
+                    const originalWidth = parseFloat(this.target.dataset.originalWidth);
+                    const originalHeight = parseFloat(this.target.dataset.originalHeight);
+
+                    // +++ LOG ORIGINAL WIDTH AND HEIGHT BEFORE GSAP +++
+                    console.log("onDragEnd - originalWidth (before GSAP):", originalWidth, "originalHeight (before GSAP):", originalHeight);
+
+                    gsap.to(this.target, {
+                        scale: 1,
+                        rotate: 0,
+                        duration: 0.2,
+                        x: 0, y: 0,
+                        width: originalWidth,
+                        height: originalHeight,
+                        scale: 1,
+                        y: 0,
+                        boxShadow: ''
+                    });
+
+                    // +++ LOG ORIGINAL WIDTH AND HEIGHT AFTER GSAP (Computed Style) +++
+                    gsap.delayedCall(0.2, () => { // After the animation duration
+                        const computedStyle = getComputedStyle(this.target);
+                        console.log("onDragEnd - Computed width (after GSAP):", computedStyle.width, "Computed height (after GSAP):", computedStyle.height);
+                    });
+
+
+                    gsap.to(walletElements, { duration: 0.2, opacity: 1, zIndex: 0 });
+
+                    var i = walletElements.length;
+                    while (--i > -1) {
+                        if (this.hitTest(walletElements[i], hitPercentage)) {
+                            handleWalletDrop(this.target, walletElements[i], lastDropTargetWalletName.value);
+                        }
+                    }
+
+                    // +++ CLEAR HIGHLIGHT IN onDragEnd +++
+                    if (lastDropTargetWalletName.value) {
+                        const walletToReset = document.querySelector(`.wallet-board-draggable[data-wallet-name="${lastDropTargetWalletName.value}"]`);
+                        if (walletToReset) {
+                            gsap.to(walletToReset, {
+                                duration: 0.2,
+                                border: '',
+                                backgroundColor: '',
+                                scale: 1,
+                                boxShadow: ''
+                            });
+                            console.log("GSAP REMOVE highlight on drag end from:", lastDropTargetWalletName.value);
+                        }
+                        lastDropTargetWalletName.value = null;
+                    }
+                },
+
+            });
+        });
+    });
 });
+
 
 // Sample Bank and Tax Balances
 const bankBalance = ref(Infinity);
@@ -263,37 +444,18 @@ const receiverWalletBalance = computed(() => {
     return player ? player.balance : 0;
 });
 // Handle drag start - set the dragged wallet as source
-const handleDragStart = (event, walletName) => {
+const handleDragStart = (dragEvent, walletName) => {
     console.log(`Drag started from wallet: ${walletName}`);
     dragSource.value = walletName;
-
-    // Set data in dataTransfer to identify the dragged item
-    if (event.type !== 'touchstart') { //Only set data if event is not touchstart
-        event.dataTransfer.setData('text/plain', walletName);
-    }
-
-    // Set drag effect
-    if (event.type !== 'touchstart') {
-        event.dataTransfer.effectAllowed = 'move';
-    }
-
-    // Add a visual effect during drag (optional)
-    const wallet = event.currentTarget;
-    setTimeout(() => {
-        wallet.classList.add('dragging');
-    }, 0);
 };
 
-// Handle drop - initiate transaction between source and target wallets
-const handleDrop = async (event, targetWalletName) => {
-    console.log(`Drop received on wallet: ${targetWalletName}`);
-    // event.preventDefault();
 
-    // Remove visual effects
-    document.querySelectorAll('.dragging').forEach(el => el.classList.remove('dragging'));
-
-    // Get source wallet name from dataTransfer
+// Function to handle wallet drop (GSAP Draggable's onDragEnd) - NEW FUNCTION - Replaces original handleDrop
+const handleWalletDrop = async (droppedWalletElement, draggableInstance, targetWalletNameFromHighlight) => {
     const sourceWalletName = dragSource.value;
+    const targetWalletName = targetWalletNameFromHighlight;
+
+    console.log(`Drop received on wallet: ${targetWalletName}`);
 
     // Clear any hover on the source wallet
     clearWalletBoardHover(sourceWalletName);
@@ -301,24 +463,28 @@ const handleDrop = async (event, targetWalletName) => {
     // Clear any hover on the target wallet
     clearWalletBoardHover(targetWalletName);
 
-    if (sourceWalletName && sourceWalletName !== targetWalletName) {
+    // +++ Animate wallet back to ORIGINAL ABSOLUTE position +++
+    const initialLeft = parseFloat(droppedWalletElement.dataset.initialLeft); // Retrieve absolute initial left
+    const initialTop = parseFloat(droppedWalletElement.dataset.initialTop);   // Retrieve absolute initial top
+
+    console.log("handleWalletDrop - Retrieved initialLeft:", initialLeft, "initialTop:", initialTop); // Log retrieved positions
+
+    gsap.to(droppedWalletElement, {
+        x: 0,       // Animate x offset to ZERO - Reset horizontal translation
+        y: 0,       // Animate y offset to ZERO - Reset vertical translation
+        duration: 0.3,   // Animation duration (adjust as needed)
+        ease: "elastic.out", // Easing function (adjust as needed)
+        // transformOrigin: "0% 0%" // Optional: If needed, set transformOrigin to top-left
+    });
+
+    if (sourceWalletName && sourceWalletName !== targetWalletName && targetWalletName) {
         console.log(`Initiating transaction from ${sourceWalletName} to ${targetWalletName}`);
 
         // Set sender and receiver for transaction
         senderWalletName.value = sourceWalletName;
         receiverWalletName.value = targetWalletName;
 
-        // Calculate senderColor and receiverColor similar to how senderName is calculated
-        if (sourceWalletName === 'Bank') {
-            senderWalletColor.value = 'bg-mvb-gray';
-        } else if (sourceWalletName === 'Tax') {
-            senderWalletColor.value = 'bg-mvb-white';
-        } else {
-            const playerIndex = parseInt(sourceWalletName.replace('Player ', '')) - 1;
-            const playerColors = ['bg-mvb-blue', 'bg-mvb-green', 'bg-mvb-pale', 'bg-mvb-salmon', 'bg-mvb-orange', 'bg-mvb-yellow'];
-            senderWalletColor.value = playerColors[playerIndex % playerColors.length] || 'bg-mvb-white';
-        }
-
+        senderWalletColor.value = getWalletColor(sourceWalletName);
         receiverWalletColor.value = getWalletColor(targetWalletName);
 
         selectedWalletName.value = sourceWalletName;
@@ -335,6 +501,7 @@ const handleDrop = async (event, targetWalletName) => {
     // Reset drag source
     dragSource.value = null;
 };
+
 
 const getWalletColor = (walletName) => {
     if (walletName === 'Bank') {
@@ -554,8 +721,10 @@ const restartGame = () => {
 .tax-area {
     display: flex;
     justify-content: center;
+    /* Keep content centered horizontally */
     width: 100%;
     max-width: 800px;
+    /* Default max-width - for portrait perhaps */
     height: auto;
 }
 
@@ -565,6 +734,7 @@ const restartGame = () => {
     grid-template-columns: repeat(4, 1fr);
     grid-template-rows: repeat(8, auto);
     gap: 8px;
+    height: 100%;
     @apply flex-1;
 }
 
@@ -755,56 +925,61 @@ const restartGame = () => {
     /* General styling for player cells */
 }
 
-/* Drag and drop styling */
-[draggable=true] {
-    cursor: grab;
-    transition: all 0.2s;
-}
-
-[draggable=true]:active {
-    cursor: grabbing;
-    opacity: 0;
-    transform: all 0.2s;
-}
-
-.dragging {
-    /* UPDATED .dragging CLASS - "Lifting" Effect */
-    /* opacity: 0; */
-    /* Slightly transparent - Remains, but can adjust */
-    /* transform: scale(1.05) translateY(-5px); */
-    opacity: 0;
-    /* UPDATED - Scale up slightly and move up for "lifting" effect */
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
-    /* UPDATED - More pronounced shadow for "lifting" effect */
-    transition: transform all 0.3s ease-out;
-    /* UPDATED - Include transform and box-shadow in transition */
-}
-
 @media (orientation: landscape) {
     .tabletop-layout {
         flex-direction: row;
         @apply flex-1;
+        height: 100%;
         align-items: stretch;
         justify-content: space-between;
     }
 
     .bank-area {
         width: auto;
+        /* Keep width auto */
         max-width: none;
+        /* Keep max-width none */
         margin-bottom: 0;
         margin-right: 2rem;
+        justify-content: flex-start;
+        /* Keep justify-content: flex-start */
+        flex-basis: 20%;
+        /* ADD flex-basis: 20% - initial width */
+        flex-grow: 0;
+        /* ADD flex-grow: 0 - don't grow excessively */
     }
 
     .tax-area {
         width: auto;
+        /* Keep width auto */
         max-width: none;
+        /* Keep max-width none */
         margin-top: 0;
         margin-left: 2rem;
+        justify-content: flex-end;
+        /* Keep justify-content: flex-end */
+        flex-basis: 20%;
+        /* ADD flex-basis: 20% - initial width */
+        flex-grow: 0;
+        /* ADD flex-grow: 0 - don't grow excessively */
     }
+
+    /* .wallet-board { */
+    /* height: auto !important; */
+    /* Try auto height in landscape - important for override */
+    /* min-height: none !important; */
+    /* Remove min-height override in landscape */
+    /* max-height: none !important; */
+    /* Remove max-height override in landscape */
+    /* width: 100%;  Keep width 100% or adjust if needed in landscape */
+    /* Add other landscape specific styles here if needed */
+    /* } */
 
     .layout-grid {
         max-width: none;
         margin: 0;
+        @apply flex-1;
+        /* Keep @apply flex-1 for layout-grid */
     }
 }
 </style>

@@ -1,20 +1,19 @@
 <template>
-    <div class="wallet-board rounded-md border-2 border-gray-300 p-4 flex flex-col items-center justify-center transition-discrete"
-        :class="[walletColorClass, { 'expanded': expanded, 'drop-target-hover': isDropTargetHover, 'touch-target-hover': isTouchTargetHover }]"
-        @click.stop="handleClick" @dragleave="onDragLeave" @dragover="onDragOver" @drop="onDrop"
-        @touchstart="onTouchStart" @touchmove="onTouchMove" @touchend="onTouchEnd">
-        <div class="board-content" :style="contentRotationStyle" @dragenter="onDragEnter"
-            :class="{ 'pointer-events-none': !isTappable }">
+    <div class="wallet-board wallet-board-draggable rounded-md border-2 border-gray-300 p-4 flex flex-col items-center justify-center"
+        :class="[walletColorClass, { 'touch-target-hover': isTouchTargetHover }]" :data-wallet-name="name"
+        @click.stop="handleClick" @dragleave="onDragLeave" @dragover.prevent="$emit('dragover')"
+        @drop.prevent="$emit('drop')" @touchstart="onTouchStart" @touchmove="onTouchMove" @touchend="onTouchEnd"
+        ref="walletBoardRef"> <!-- ADD ref="walletBoardRef" -->
+        <div class="board-content" :style="contentRotationStyle" :class="{ 'pointer-events-none': !isTappable }">
             <!-- Container for rotated content -->
             <button v-if="expanded" @click.stop="handleCloseClick"
                 class="absolute top-2 right-50% bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded-md shadow-md transition-all">
                 Close
             </button>
             <h3 class="player-name text-md text-center text-black max-w-[100px]">{{ name }}</h3>
-            <Transition name="balance-update-transition" mode="out-in"> <!-- Transition component wrapping balance -->
-                <p class="balance text-2xl font-bold text-center text-black" :key="displayBalance">{{ displayBalance }}
-                </p>
-            </Transition>
+            <p class="balance text-2xl font-bold text-center text-black" :key="displayBalance">{{
+                tweened.balance.toFixed(displayBalance.value) }}
+            </p>
 
             <TransactionLog v-if="expanded" :transactions="transactionHistory" :isPersonal="true"
                 :title="`Transaction History (${name})`" />
@@ -23,8 +22,11 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, reactive, ref, watch, onMounted, nextTick } from 'vue';
 import TransactionLog from './TransactionLog.vue';
+import { gsap } from 'gsap';
+import { Flip } from "gsap/Flip"; // Import Flip plugin
+gsap.registerPlugin(Flip); // Register Flip plugin
 
 const props = defineProps({
     name: {
@@ -48,7 +50,7 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
-    expanded: {  // New prop: expanded - to control expanded state
+    expanded: {
         type: Boolean,
         default: false,
     },
@@ -62,15 +64,33 @@ const props = defineProps({
     }
 });
 
-const transactionHistory = ref([]); // Reactive array to store transaction history for each wallet
+const tweened = reactive({
+    balance: props.balance
+});
+
+watch(
+    () => props.balance,
+    (newBalance) => {
+        gsap.to(tweened, {
+            duration: 0.5,
+            balance: Number(newBalance) || 0,
+            delay: 0.5
+        });
+    }
+);
+
+const transactionHistory = ref([]);
 const isDropTargetHover = ref(false);
 const isTouchTargetHover = ref(false);
+
+const walletBoardRef = ref(null);
+const isAnimatingExpansion = ref(false);
+const collapsedHeight = ref(null); // Ref to store collapsed height
 
 const pushTransaction = (transaction) => {
     transactionHistory.value.push(transaction);
 };
 
-// New method to be called externally to clear the hover state
 const clearDropTargetHover = () => {
     isDropTargetHover.value = false;
 };
@@ -81,15 +101,15 @@ defineExpose({
     clearDropTargetHover
 });
 
-const emit = defineEmits(['wallet-clicked', 'transaction-requested', 'drop']);
+const emit = defineEmits(['wallet-clicked', 'transaction-requested', 'drop', 'dragover']);
 
 const displayBalance = computed(() => {
     if (props.isBank) {
         return '∞';
     } else if (props.isTax) {
-        return formatCurrencyAbbreviated(props.balance); // Use formatCurrencyAbbreviated for Tax
+        return formatCurrencyAbbreviated(props.balance);
     } else {
-        return formatCurrencyAbbreviated(props.balance); // Use formatCurrencyAbbreviated for Players
+        return formatCurrencyAbbreviated(props.balance);
     }
 });
 
@@ -97,15 +117,15 @@ const formatCurrencyAbbreviated = (amount) => {
     if (props.expanded) {
         return formatCurrency(amount);
     } else if (amount === Infinity) {
-        return '∞'; // Bank balance remains infinity symbol
+        return '∞';
     }
     if (amount >= 1000000) {
-        return `$${(amount / 1000000).toFixed(1)}M`; // Millions, 1 decimal place
+        return `$${(amount / 1000000).toFixed(1)}M`;
     }
     if (amount >= 100000) {
-        return `$${(amount / 1000).toFixed(1)}K`;    // Thousands, 1 decimal place
+        return `$${(amount / 1000).toFixed(1)}K`;
     }
-    return `$${amount}`; // No abbreviation for amounts less than 1000
+    return `$${amount}`;
 };
 
 const walletColorClass = computed(() => {
@@ -120,13 +140,12 @@ const walletColorClass = computed(() => {
     }
 });
 
-
 function formatCurrency(amount) {
     return `$${amount}`;
 }
 
 const contentRotationStyle = computed(() => {
-    let rotation = 'rotate(0deg)'; // Default rotation (no rotation)
+    let rotation = 'rotate(0deg)';
     if (props.allowsRotation) {
         if (props.orientation === 'down') {
             rotation = 'rotate(180deg)';
@@ -137,17 +156,17 @@ const contentRotationStyle = computed(() => {
         }
     }
     return {
-        transform: rotation, // Apply rotation using CSS transform: rotate()
+        transform: rotation,
     };
 });
 
 const onDragEnter = (event) => {
-    console.log("Drag ENTERED Wallet:", props.name); // Log dragenter eventisDropTargetHover prop
+    console.log("Drag ENTERED Wallet:", props.name);
     isDropTargetHover.value = true;
 };
 
 const onDragLeave = (event) => {
-    console.log("Drag LEFT Wallet:", props.name);  // Log dragleave eventisDropTargetHover prop
+    console.log("Drag LEFT Wallet:", props.name);
     isDropTargetHover.value = false;
 };
 
@@ -180,16 +199,102 @@ const onTouchEnd = (event) => {
 };
 
 const handleClick = () => {
-    if (props.isTappable) {
+    if (props.isTappable && !isAnimatingExpansion.value) {
         emit('wallet-clicked', props.name);
     }
 }
 
 const handleCloseClick = () => {
-    if (props.isTappable) {
+    if (props.isTappable && !isAnimatingExpansion.value) {
         emit('wallet-clicked', props.name)
     }
 }
+
+watch(
+    () => props.expanded,
+    (isExpanded) => {
+        if (walletBoardRef.value) {
+            isAnimatingExpansion.value = true;
+            if (isExpanded) {
+                // --- EXPAND ANIMATION (No changes to expand for now) ---
+                const flipState = Flip.getState(walletBoardRef.value);
+
+                gsap.set(walletBoardRef.value, {
+                    position: 'fixed',
+                    xPercent: -50,
+                    yPercent: -50,
+                    top: "50%",
+                    left: "50%",
+                    width: '100vw',
+                    height: '100svh',
+                    zIndex: 101,
+                    borderRadius: 0,
+                    boxShadow: '0 10px 20px rgba(0,0,0,0.3)',
+                    overflow: 'hidden'
+                });
+
+                Flip.from(flipState, {
+                    duration: 0.5,
+                    ease: "power2.inOut",
+                    scale: true,
+                    absolute: true,
+                    onComplete: () => {
+                        gsap.set(walletBoardRef.value, { overflow: 'auto' });
+                        isAnimatingExpansion.value = false;
+                        console.log("Expand Animation (Height Refine) Complete");
+                    }
+                });
+
+
+            } else {
+                // --- COLLAPSE ANIMATION - HEIGHT REFINEMENT ATTEMPT ---
+                gsap.set(walletBoardRef.value, { overflow: 'hidden' });
+
+                const flipState = Flip.getState(walletBoardRef.value);
+
+                // Immediately set COLLAPSED styles - with clearProps: "all" FIRST and specific height
+                gsap.set(walletBoardRef.value, {
+                    clearProps: "all", // Wipe inline styles FIRST - NOW AT THE BEGINNING
+                    position: 'relative', // Or your default
+                    top: 'auto',
+                    left: 'auto',
+                    xPercent: 0,
+                    yPercent: 0,
+                    width: '100%', // Or your default
+                    height: collapsedHeight.value ? collapsedHeight.value + "px" : '100%', // Use stored height or '100%' as fallback
+                    zIndex: 'auto',
+                    borderRadius: '0.75rem',
+                    boxShadow: '0 0 0 rgba(0,0,0,0)'
+                });
+
+                Flip.from(flipState, {
+                    scale: true,
+                    duration: 0.7,
+                    delay: 0,
+                    ease: "power1.inOut",
+                    absolute: true,
+                    onComplete: () => {
+                        isAnimatingExpansion.value = false;
+                        console.log("Collapse Animation (Height Refine) Complete");
+                    }
+                });
+            }
+        }
+    },
+    { immediate: false }
+);
+
+onMounted(() => {
+    gsap.set(walletBoardRef.value, { position: 'relative' });
+    // Capture initial collapsed height on mount
+    nextTick(() => {
+        if (walletBoardRef.value) {
+            collapsedHeight.value = walletBoardRef.value.offsetHeight;
+            console.log("Captured Collapsed Height:", collapsedHeight.value);
+        }
+    });
+});
+
 </script>
 
 <style scoped>
@@ -204,7 +309,12 @@ const handleCloseClick = () => {
     display: flex;
     flex-direction: column;
     pointer-events: auto;
-    /* Explicitly set pointer-events to auto */
+    /* position: relative;  <- REMOVE position:relative if you are setting it with GSAP */
+    border-radius: 0.75rem;
+    /* Example: default border-radius */
+    /* transition: all 0.3s ease-out; <- REMOVE transition property */
+    will-change: transform, top, left, width, height;
+    /* Optimize for animation */
 }
 
 .wallet-board>* {
@@ -223,44 +333,10 @@ const handleCloseClick = () => {
     /* Center text within content areas */
 }
 
-.wallet-board.expanded {
-    @apply text-2xl;
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100svh;
-    transform: scale(1);
-    z-index: 101;
-    transition: transform 0.3s ease-out, box-shadow 0.3s ease-out;
-    /* Smooth transition for expansion */
-    box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.5);
-    /* More prominent shadow for expanded view */
-}
-
-.wallet-board.drop-target-hover {
-    /* Targeting .wallet-board elements that ALSO have .drop-target-hover class */
-    background-color: rgba(255, 255, 255, 0.9);
-    /* Example: Slightly darker white background - Adjust color/opacity as needed */
-    transform: scale(1.03);
-    /* Example: Scale up slightly on hover - Adjust scale value as needed */
-    transition: background-color 0.2s ease-out, transform 0.2s ease-out;
-    /* Smooth transition for hover effect */
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    /* Example: Add subtle shadow on hover - Adjust shadow as needed */
-    border-color: blue;
-    /* Example: Blue border - to visually highlight */
-    border-width: 2px;
-    /* Example: Thicker border - to visually highlight */
-}
-
-.wallet-board.touch-target-hover {
-    background-color: rgba(255, 255, 255, 0.9);
-    transform: scale(1.03);
-    transition: background-color 0.2s ease-out, transform 0.2s ease-out;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    border-color: red;
-    border-width: 10px;
+.wallet-board-draggable {
+    will-change: transform;
+    /* Add this line */
+    /* ... other styles ... */
 }
 
 .board-content {
@@ -277,7 +353,6 @@ const handleCloseClick = () => {
     /* Rotation is now applied DYNAMICALLY using :style binding in template - NO CSS rotation here */
 }
 
-
 .player-name {
     /* Player name styles - adjust if needed */
     margin-bottom: 0.5rem;
@@ -292,27 +367,5 @@ const handleCloseClick = () => {
     /* Slightly smaller font size */
     flex-grow: 0;
     /* Prevent balance from growing too much */
-}
-
-.balance-update-transition-enter-from {
-    /* Initial state BEFORE transition starts */
-    opacity: 0;
-    /* Start with 0 opacity (fade-in effect) */
-    font-size: 1.3rem;
-    /* Start with slightly smaller font-size (scale-up effect) */
-}
-
-.balance-update-transition-enter-active {
-    /* Active state DURING transition - Define transition properties */
-    transition: all 0.3s ease-out;
-    /* Apply transition to all properties (opacity, font-size), duration 0.3s, ease-out timing */
-}
-
-.balance-update-transition-enter-to {
-    /* Final state AFTER transition completes */
-    opacity: 1;
-    /* End with full opacity */
-    font-size: 1.5rem;
-    /* End with normal font-size */
 }
 </style>
