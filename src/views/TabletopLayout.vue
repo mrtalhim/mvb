@@ -94,617 +94,164 @@
 </template>
 
 <script setup>
+import { ref, onMounted, provide, toRef, watch } from 'vue';
 import WalletBoard from '../components/WalletBoard.vue';
 import ModalNumberInput from '../components/ModalNumberInput.vue';
 import TransactionLog from '../components/TransactionLog.vue';
 import { beforeEnterModal, enterModal, leaveModal } from '../utils/animations';
-import { ref, computed, onMounted, nextTick, provide } from 'vue';
 
-import { gsap } from 'gsap'; // Import GSAP
-import { Draggable } from 'gsap/Draggable'; // Import Draggable if you want to use it
-import { CSSPlugin } from 'gsap/CSSPlugin'; // Import CSSPlugin if you want to use it
-gsap.registerPlugin(Draggable, CSSPlugin); // Register the plugins
+// Import Composables
+import { usePlayers } from '../composables/usePlayers';
+import { useLayout } from '../composables/useLayout';
+import { useTransactionLog } from '../composables/useTransactionLog';
+import { useBankAndTax } from '../composables/useBankAndTax';
+import { useTransactions } from '../composables/useTransactions';
+import { useDraggableWallets } from '../composables/useDraggableWallets';
+import { useModals } from '../composables/useModals';
+import { useWalletExpansion } from '../composables/useWalletExpansion';
 
-const emit = defineEmits(['restart-game']);
-const isRestartConfirmationModalVisible = ref(false);
-
-const isTransactionLogModalVisible = ref(false);
 const props = defineProps({
-    playerCount: {  // Define playerCount as a prop
+    playerCount: {
         type: Number,
-        required: true, // Make it required - App.vue should always pass this prop
+        required: true,
         default: 4
     },
-    startingMoney: { // Define startingMoney as a prop
+    startingMoney: {
         type: Number,
-        required: true, // Make it required - App.vue should always pass this prop
+        required: true,
         default: 1500,
     },
     tabletopMode: {
         type: Boolean,
         required: true,
-        default: true, // default to true
+        default: true,
     },
 });
 
-const players = ref([]);
-const transactionLog = ref([]);
+const emit = defineEmits(['restart-game']);
+
+// --- Use Composables ---
+
+// Props need to be reactive refs when passed to composables
+const playerCountRef = toRef(props, 'playerCount');
+const startingMoneyRef = toRef(props, 'startingMoney');
+const tabletopModeRef = toRef(props, 'tabletopMode');
+
+// Core State Management
+const { players, updatePlayerBalance, initializePlayers } = usePlayers(playerCountRef, startingMoneyRef);
+const { layoutConfig, getWalletOrientation, getWalletColor } = useLayout(playerCountRef, tabletopModeRef);
+const { transactionLog, logTransaction, clearLog } = useTransactionLog();
+const { bankBalance, taxBalance, updateTaxBalance, resetTaxBalance } = useBankAndTax(0); // Start tax at 0
+const { expandedWallets, handleWalletClicked, collapseAllWallets } = useWalletExpansion();
+const {
+    isTransactionLogModalVisible,
+    toggleTransactionLogModal,
+    isRestartConfirmationModalVisible,
+    openRestartConfirmationModal,
+    closeRestartConfirmationModal
+} = useModals();
+
+// Refs for WalletBoard components (needed for direct interaction like pushTransaction)
 const bankWalletRef = ref(null);
 const taxWalletRef = ref(null);
-const playerWalletRefs = ref({}); // ref to hold an object to store player WalletBoard refs (keyed by player name)  <- ADD THIS LINE
+const playerWalletRefs = ref({}); // Keyed by player name `Player X`
 
-const initializePlayers = () => {
-    const playerArray = [];
-    for (let i = 1; i <= props.playerCount; i++) {
-        playerArray.push({ id: i, name: `Player ${i}`, balance: props.startingMoney }); // Initialize with default balance
-    }
-    return playerArray;
+// Helper to get component refs
+const getWalletBoardRef = (walletName) => {
+    if (walletName === 'Bank') return bankWalletRef.value;
+    if (walletName === 'Tax') return taxWalletRef.value;
+    return playerWalletRefs.value[walletName] ?? null;
 };
 
-const generateLayoutConfig = (playerCount) => {
-    const config = {};
-
-    if (playerCount === 2) {
-        config["2"] = [
-            { playerNum: 1, cellClass: 'player-1-cell player-count-2', orientation: 'down' },     // Player 1 - Top - Upwards
-            { playerNum: 2, cellClass: 'player-2-cell player-count-2', orientation: 'up' },   // Player 2 - Bottom - Downwards
-        ];
-    } else if (playerCount === 3) {
-        config["3"] = [
-            { playerNum: 1, cellClass: 'player-1-cell player-count-3', orientation: 'down' },     // Player 1 - Top - Upwards
-            { playerNum: 2, cellClass: 'player-2-cell player-count-3', orientation: 'up' },   // Player 2 - Bottom - Downwards
-            { playerNum: 3, cellClass: 'player-3-cell player-count-3', orientation: 'right' },  // Player 3 - Right - Rightwards (Middle Vertical)
-        ];
-    } else if (playerCount === 4) {
-        config["4"] = [ // 4-Player Layout - CORRECTED PLAYER ORDER (Clockwise Ascending) and Orientations
-            { playerNum: 1, cellClass: 'player-1-cell player-count-4', orientation: 'down' },       // Player 1 - Top - Upwards
-            { playerNum: 2, cellClass: 'player-2-cell player-count-4', orientation: 'right' },     // Player 2 - Bottom - Downwards
-            { playerNum: 3, cellClass: 'player-3-cell player-count-4', orientation: 'up' },    // Player 3 - Right - Rightwards (Middle Right Vertical)
-            { playerNum: 4, cellClass: 'player-4-cell player-count-4', orientation: 'left' },     // Player 4 - Left - Leftwards (Middle Left Vertical)
-        ];
-    } else if (playerCount === 5) {
-        config["5"] = [ // 5-Player Layout - CORRECTED PLAYER ORDER (Clockwise Ascending) and Orientations
-            { playerNum: 1, cellClass: 'player-1-cell player-count-5', orientation: 'down' },       // Player 1 - Top - Upwards
-            { playerNum: 2, cellClass: 'player-2-cell player-count-5', orientation: 'right' },     // Player 2 - Bottom Right - Downwards
-            { playerNum: 3, cellClass: 'player-3-cell player-count-5', orientation: 'up' },    // Player 3 - Right - Rightwards (Middle Right Vertical)
-            { playerNum: 4, cellClass: 'player-4-cell player-count-5', orientation: 'up' },     // Player 4 - Left - Leftwards (Middle Left Vertical)
-            { playerNum: 5, cellClass: 'player-5-cell player-count-5', orientation: 'left' },     // Player 5 - Bottom Left - Downwards
-        ];
-    } else if (playerCount === 6) {
-        config["6"] = [ // 6-Player Layout - CORRECTED PLAYER ORDER (Clockwise Ascending) and Orientations
-            { playerNum: 1, cellClass: 'player-1-cell player-count-6', orientation: 'down' },       // Player 1 - Top Left - Upwards
-            { playerNum: 2, cellClass: 'player-2-cell player-count-6', orientation: 'down' },     // Player 2 - Bottom Right - Downwards
-            { playerNum: 3, cellClass: 'player-3-cell player-count-6', orientation: 'right' },    // Player 3 - Right - Rightwards (Middle Right Vertical)
-            { playerNum: 4, cellClass: 'player-4-cell player-count-6', orientation: 'up' },     // Player 4 - Left - Leftwards (Middle Left Vertical)
-            { playerNum: 5, cellClass: 'player-5-cell player-count-6', orientation: 'up' },     // Player 5 - Bottom Left - Downwards
-            { playerNum: 6, cellClass: 'player-6-cell player-count-6', orientation: 'left' },       // Player 6 - Top Right - Upwards
-        ];
-    } else if (playerCount === 7) {
-        config["7"] = [ // 7-Player Layout - CORRECTED PLAYER ORDER (Clockwise Ascending) and Orientations
-            { playerNum: 1, cellClass: 'player-1-cell player-count-7', orientation: 'down' },       // Player 1 - Top Center - Upwards
-            { playerNum: 2, cellClass: 'player-2-cell player-count-7', orientation: 'right' },     // Player 2 - Bottom Right - Downwards
-            { playerNum: 3, cellClass: 'player-3-cell player-count-7', orientation: 'right' },    // Player 3 - Right - Rightwards (Middle Top Vertical)
-            { playerNum: 4, cellClass: 'player-4-cell player-count-7', orientation: 'up' },     // Player 4 - Left - Leftwards (Middle Top Vertical)
-            { playerNum: 5, cellClass: 'player-5-cell player-count-7', orientation: 'up' },     // Player 5 - Left - Leftwards (Middle Bottom Vertical)
-            { playerNum: 6, cellClass: 'player-6-cell player-count-7', orientation: 'left' },     // Player 6 - Bottom Center - Downwards
-            { playerNum: 7, cellClass: 'player-7-cell player-count-7', orientation: 'left' },     // Player 7 - Bottom Left - Downwards
-        ];
-    } else if (playerCount === 8) {
-        config["8"] = [ // 8-Player Layout - CORRECTED PLAYER ORDER (Clockwise Ascending) and Orientations
-            { playerNum: 1, cellClass: 'player-1-cell player-count-8', orientation: 'down' },       // Player 1 - Top Left - Upwards
-            { playerNum: 2, cellClass: 'player-2-cell player-count-8', orientation: 'down' },     // Player 2 - Bottom Right - Downwards
-            { playerNum: 3, cellClass: 'player-3-cell player-count-8', orientation: 'right' },    // Player 3 - Right Top - Rightwards (Middle Top Vertical)
-            { playerNum: 4, cellClass: 'player-4-cell player-count-8', orientation: 'right' },     // Player 4 - Left Top - Leftwards (Middle Top Vertical)
-            { playerNum: 5, cellClass: 'player-5-cell player-count-8', orientation: 'up' },     // Player 5 - Left Bottom - Leftwards (Middle Bottom Vertical)
-            { playerNum: 6, cellClass: 'player-6-cell player-count-8', orientation: 'up' },     // Player 6 - Bottom Left - Downwards
-            { playerNum: 7, cellClass: 'player-7-cell player-count-8', orientation: 'left' },     // Player 7 - Bottom Right - Downwards
-            { playerNum: 8, cellClass: 'player-8-cell player-count-8', orientation: 'left' },       // Player 8 - Top Right - Upwards
-        ];
+// Function to set player refs in the template loop
+const setPlayerWalletRef = (el, playerNum) => {
+    if (el) {
+        playerWalletRefs.value[`Player ${playerNum}`] = el;
+    } else {
+        // Handle potential unmounting/cleanup if needed
+        delete playerWalletRefs.value[`Player ${playerNum}`];
     }
-
-    console.log("Layout Config (Before Template - Player Count):", playerCount.value);
-    console.log("Layout Config (Before Template - Config Object):", config);
-
-    return config;
 };
 
-const layoutConfig = ref({}); // Initialize as empty ref
-const lastDropTargetWalletName = ref(null);
+// Transaction Handling (depends on other composables/refs)
+const {
+    isModalVisible,
+    senderWalletName,
+    senderWalletColor,
+    receiverWalletName,
+    receiverWalletColor,
+    selectedWalletOrientation,
+    selectedWalletBalance,
+    receiverWalletBalance,
+    openTransactionModal,
+    handleConfirmValue,
+    handleCancelModal,
+} = useTransactions(
+    players, // Pass the reactive ref
+    bankBalance, // Pass the reactive ref
+    taxBalance, // Pass the reactive ref
+    logTransaction, // Pass the function
+    getWalletBoardRef, // Pass the helper function
+    getWalletOrientation, // Pass function from useLayout
+    getWalletColor, // Pass function from useLayout
+    updatePlayerBalance, // Pass function from usePlayers
+    updateTaxBalance // Pass function from useBankAndTax
+);
 
-onMounted(() => {
-    layoutConfig.value = generateLayoutConfig(props.playerCount);
-    console.log("Initial Player Count (onMounted):", props.playerCount);
-    players.value = initializePlayers();
-    console.log("Initial Layout Config (onMounted):", layoutConfig.value);
+// Drag and Drop (depends on transaction modal logic and refs)
+// Note: useDraggableWallets calls its own onMounted internally
+useDraggableWallets(
+    openTransactionModal, // Pass the function from useTransactions
+    getWalletBoardRef // Pass the helper function
+);
 
-    nextTick(() => {
-        const walletElements = document.querySelectorAll('.wallet-board-draggable');
-        const hitPercentage = '40%';
-        walletElements.forEach((wallet, i) => {
-            Draggable.create(wallet, {
-                inertia: true,
-                cursor: 'grab',
-                activeCursor: 'grabbing',
-                onDragStart: function () {
-                    handleDragStart({ currentTarget: this.target, type: 'mousedown' }, this.target.dataset.walletName);
-
-                    // +++ Get absolute position using getBoundingClientRect() +++
-                    const rect = this.target.getBoundingClientRect();
-                    this.target.dataset.initialLeft = rect.left;
-                    this.target.dataset.initialTop = rect.top;
-                    this.target.dataset.originalWidth = this.target.offsetWidth;
-                    this.target.dataset.originalHeight = this.target.offsetHeight;
-
-                    // +++ LOG ORIGINAL WIDTH AND HEIGHT +++
-                    console.log("onDragStart - originalWidth:", this.target.dataset.originalWidth, "originalHeight:", this.target.dataset.originalHeight);
-
-                    gsap.to(this.target, {
-                        duration: 0.1,
-                        scale: 1.05,
-                        width: 100,
-                        height: 100,
-                        y: -5,
-                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1)',
-                        zIndex: 100
-                    });
-
-                    gsap.to(walletElements, {
-                        duration: 0.1,
-                        opacity: (i, t) => (t == this.target) ? 1 : 0.3
-                    });
-                },
-                onDrag: function () {
-                    // --- GSAP Highlight Logic based on hitTest - REFINED ---
-                    const draggedWalletName = this.target.dataset.walletName;
-                    const dropTargets = walletElements;
-
-                    let currentHighlightedWalletName = null;
-
-                    dropTargets.forEach(target => {
-                        if (target !== this.target && this.hitTest(target, hitPercentage)) {
-                            currentHighlightedWalletName = target.dataset.walletName;
-                        }
-                    });
-
-                    if (currentHighlightedWalletName) {
-                        if (currentHighlightedWalletName !== lastDropTargetWalletName.value) {
-                            // New target highlighted
-                            const prevHighlightedWalletName = lastDropTargetWalletName.value;
-                            lastDropTargetWalletName.value = currentHighlightedWalletName;
-
-                            dropTargets.forEach(target => {
-                                const targetWalletName = target.dataset.walletName;
-                                if (targetWalletName === currentHighlightedWalletName) {
-                                    gsap.to(target, { // GSAP for highlight - SHORT DURATION
-                                        duration: 0.1, // Reduced duration for snappier response
-                                        border: '5px solid red',
-                                        backgroundColor: 'yellow',
-                                        scale: 1.1,
-                                        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)'
-                                    });
-                                    console.log("GSAP ADD highlight styles to:", currentHighlightedWalletName);
-                                } else if (targetWalletName === prevHighlightedWalletName) {
-                                    gsap.to(target, { // GSAP to remove highlight from PREVIOUS target - SHORT DURATION
-                                        duration: 0.1, // Reduced duration for snappier response
-                                        border: '',
-                                        backgroundColor: '',
-                                        scale: 1,
-                                        boxShadow: ''
-                                    });
-                                    console.log("GSAP REMOVE highlight styles from:", prevHighlightedWalletName);
-                                }
-                            });
-                        }
-                    } else {
-                        // No target highlighted
-                        if (lastDropTargetWalletName.value) {
-                            const prevHighlightedWalletName = lastDropTargetWalletName.value;
-                            lastDropTargetWalletName.value = null;
-                            dropTargets.forEach(target => {
-                                const targetWalletName = target.dataset.walletName;
-                                if (targetWalletName === prevHighlightedWalletName) {
-                                    gsap.to(target, { // GSAP to remove highlight when no target - SHORT DURATION
-                                        duration: 0.1, // Reduced duration for snappier response
-                                        border: '',
-                                        backgroundColor: '',
-                                        scale: 1,
-                                        boxShadow: ''
-                                    });
-                                    console.log("GSAP REMOVE highlight styles (no cursor) from:", prevHighlightedWalletName);
-                                }
-                            });
-                        }
-                    }
-
-
-                    // --- Proximity-based visual feedback (opacity and scale) - KEEP and adjust duration ---
-                    var i = walletElements.length;
-                    while (--i > -1) {
-                        if (this.hitTest(walletElements[i], hitPercentage)) {
-                            gsap.to(walletElements[i], {
-                                opacity: 1,
-                                scale: 1.1,
-                                translateX: 0,
-                                translateY: 0,
-                                yoyo: false, // set to false for direct animation
-                                duration: 0.1, // Reduced duration
-                                transformOrigin: "50% 50%" // Centered transformOrigin
-                            });
-                        } else if (this.target != walletElements[i]) {
-                            gsap.to(walletElements[i], {
-                                opacity: 0.3,
-                                scale: 1,
-                                yoyo: false, // set to false for direct animation
-                                duration: 0.1, // Reduced duration
-                                transformOrigin: "50% 50%" // Centered transformOrigin
-                            });
-                        }
-                    }
-                },
-                onDragEnd: function () {
-                    const originalWidth = parseFloat(this.target.dataset.originalWidth);
-                    const originalHeight = parseFloat(this.target.dataset.originalHeight);
-
-                    // +++ LOG ORIGINAL WIDTH AND HEIGHT BEFORE GSAP +++
-                    console.log("onDragEnd - originalWidth (before GSAP):", originalWidth, "originalHeight (before GSAP):", originalHeight);
-
-                    gsap.to(this.target, {
-                        scale: 1,
-                        rotate: 0,
-                        duration: 0.2,
-                        x: 0, y: 0,
-                        width: originalWidth,
-                        height: originalHeight,
-                        scale: 1,
-                        y: 0,
-                        boxShadow: ''
-                    });
-
-                    // +++ LOG ORIGINAL WIDTH AND HEIGHT AFTER GSAP (Computed Style) +++
-                    gsap.delayedCall(0.2, () => { // After the animation duration
-                        const computedStyle = getComputedStyle(this.target);
-                        console.log("onDragEnd - Computed width (after GSAP):", computedStyle.width, "Computed height (after GSAP):", computedStyle.height);
-                    });
-
-
-                    gsap.to(walletElements, { duration: 0.2, opacity: 1, zIndex: 0 });
-
-                    var i = walletElements.length;
-                    while (--i > -1) {
-                        if (this.hitTest(walletElements[i], hitPercentage)) {
-                            handleWalletDrop(this.target, walletElements[i], lastDropTargetWalletName.value);
-                        }
-                    }
-
-                    // +++ CLEAR HIGHLIGHT IN onDragEnd +++
-                    if (lastDropTargetWalletName.value) {
-                        const walletToReset = document.querySelector(`.wallet-board-draggable[data-wallet-name="${lastDropTargetWalletName.value}"]`);
-                        if (walletToReset) {
-                            gsap.to(walletToReset, {
-                                duration: 0.2,
-                                border: '',
-                                backgroundColor: '',
-                                scale: 1,
-                                boxShadow: ''
-                            });
-                            console.log("GSAP REMOVE highlight on drag end from:", lastDropTargetWalletName.value);
-                        }
-                        lastDropTargetWalletName.value = null;
-                    }
-                },
-
-            });
-        });
-    });
-});
-
-
-// Sample Bank and Tax Balances
-const bankBalance = ref(Infinity);
-const taxBalance = ref(0);
-
-// Modal State
-const isModalVisible = ref(false);
-const selectedWalletName = ref(null);
-const transactionType = ref(null);
-const inputValue = ref(0);
-const senderWalletName = ref(null);
-const senderWalletColor = ref(null);
-const receiverWalletName = ref(null);
-const receiverWalletColor = ref(null);
-const selectedWalletOrientation = ref('up');
-
-// Variables for drag and drop
-const dragSource = ref(null);
-
+// --- Provide/Inject (if needed by deep children, otherwise props are better) ---
 provide('bankBalance', bankBalance);
 provide('taxBalance', taxBalance);
-provide('players', players);
+provide('players', players); // Provide the reactive players ref
 
-const clearWalletBoardHover = (walletName) => {
-    const walletBoardRef = getWalletBoardRef(walletName);
-    if (walletBoardRef && walletBoardRef.clearDropTargetHover) {
-        walletBoardRef.clearDropTargetHover();
-    }
-};
-
-// Computed property to get balance of selected wallet
-const selectedWalletBalance = computed(() => {
-    if (selectedWalletName.value === 'Bank') return Infinity;
-    if (selectedWalletName.value === 'Tax') return taxBalance.value;
-    const player = players.value.find(p => p.name === selectedWalletName.value);
-    return player ? player.balance : 0;
-});
-
-// Computed property to get balance of receiver wallet
-const receiverWalletBalance = computed(() => {
-    if (receiverWalletName.value === 'Bank') return Infinity;
-    if (receiverWalletName.value === 'Tax') return taxBalance.value;
-    const player = players.value.find(p => p.name === receiverWalletName.value);
-    return player ? player.balance : 0;
-});
-// Handle drag start - set the dragged wallet as source
-const handleDragStart = (dragEvent, walletName) => {
-    console.log(`Drag started from wallet: ${walletName}`);
-    dragSource.value = walletName;
-};
-
-
-// Function to handle wallet drop (GSAP Draggable's onDragEnd) - NEW FUNCTION - Replaces original handleDrop
-const handleWalletDrop = async (droppedWalletElement, draggableInstance, targetWalletNameFromHighlight) => {
-    const sourceWalletName = dragSource.value;
-    const targetWalletName = targetWalletNameFromHighlight;
-
-    console.log(`Drop received on wallet: ${targetWalletName}`);
-
-    // Clear any hover on the source wallet
-    clearWalletBoardHover(sourceWalletName);
-
-    // Clear any hover on the target wallet
-    clearWalletBoardHover(targetWalletName);
-
-    // +++ Animate wallet back to ORIGINAL ABSOLUTE position +++
-    const initialLeft = parseFloat(droppedWalletElement.dataset.initialLeft); // Retrieve absolute initial left
-    const initialTop = parseFloat(droppedWalletElement.dataset.initialTop);   // Retrieve absolute initial top
-
-    console.log("handleWalletDrop - Retrieved initialLeft:", initialLeft, "initialTop:", initialTop); // Log retrieved positions
-
-    gsap.to(droppedWalletElement, {
-        x: 0,       // Animate x offset to ZERO - Reset horizontal translation
-        y: 0,       // Animate y offset to ZERO - Reset vertical translation
-        duration: 0.3,   // Animation duration (adjust as needed)
-        ease: "elastic.out", // Easing function (adjust as needed)
-        // transformOrigin: "0% 0%" // Optional: If needed, set transformOrigin to top-left
-    });
-
-    if (sourceWalletName && sourceWalletName !== targetWalletName && targetWalletName) {
-        console.log(`Initiating transaction from ${sourceWalletName} to ${targetWalletName}`);
-
-        // Set sender and receiver for transaction
-        senderWalletName.value = sourceWalletName;
-        receiverWalletName.value = targetWalletName;
-
-        senderWalletColor.value = getWalletColor(sourceWalletName);
-        receiverWalletColor.value = getWalletColor(targetWalletName);
-
-        selectedWalletName.value = sourceWalletName;
-
-        // Determine orientation for the modal
-        const senderPlayerLayout = props.tabletopMode ? getWalletOrientation(sourceWalletName) : 'up';
-        selectedWalletOrientation.value = senderPlayerLayout || 'up';
-
-        // Show transaction modal
-        transactionType.value = 'transfer';
-        isModalVisible.value = true;
-    }
-
-    // Reset drag source
-    dragSource.value = null;
-};
-
-
-const getWalletColor = (walletName) => {
-    if (walletName === 'Bank') {
-        return 'bg-mvb-gray';
-    } else if (walletName === 'Tax') {
-        return 'bg-mvb-white';
-    } else {
-        const playerIndex = parseInt(walletName.replace('Player ', '')) - 1;
-        const playerColors = ['bg-mvb-blue', 'bg-mvb-green', 'bg-mvb-pale', 'bg-mvb-salmon', 'bg-mvb-orange', 'bg-mvb-yellow'];
-        return playerColors[playerIndex % playerColors.length] || 'bg-mvb-white';
-    }
-};
-
-// Helper function to get wallet orientation
-const getWalletOrientation = (walletName) => {
-    if (!props.tabletopMode) { // Check if tabletopMode is false
-        return 'up';
-    }
-    if (walletName === 'Bank' || walletName === 'Tax') {
-        return 'up';
-    }
-
-    const playerNumber = parseInt(walletName.replace('Player ', ''));
-    const playerLayout = layoutConfig.value[props.playerCount]?.find(
-        layout => layout.playerNum === playerNumber
-    );
-
-    return playerLayout ? playerLayout.orientation : 'up';
-};
-
-const handleTransactionRequest = (eventPayload) => {
-    senderWalletName.value = eventPayload.senderName;
-    senderWalletColor.value = getWalletColor(eventPayload.senderName);
-    receiverWalletColor.value = getWalletColor(eventPayload.receiverName);
-
-    receiverWalletName.value = eventPayload.receiverName;
-    selectedWalletName.value = eventPayload.senderName;
-
-    // Determine orientation of the sender wallet and set selectedWalletOrientation
-    if (!props.tabletopMode) {
-        selectedWalletOrientation.value = 'up';
-    } else {
-        if (eventPayload.senderName === 'Bank' || eventPayload.senderName === 'Tax') {
-            console.log(eventPayload.senderName);
-            const receiverPlayerLayout = layoutConfig.value[props.playerCount]?.find(layout => layout.playerNum === parseInt(eventPayload.receiverName.replace('Player ', '')));
-            selectedWalletOrientation.value = receiverPlayerLayout?.orientation || 'up';
-        } else if (eventPayload.senderName.startsWith('Player')) {
-            const senderPlayerLayout = layoutConfig.value[props.playerCount]?.find(layout => layout.playerNum === parseInt(eventPayload.senderName.replace('Player ', '')));
-            selectedWalletOrientation.value = senderPlayerLayout?.orientation || 'up';
-
-        } else {
-            selectedWalletOrientation.value = 'up';
-        }
-    }
-
-    transactionType.value = 'transfer';
-    isModalVisible.value = true;
-};
-
-// Function to handle value confirmation from ModalNumberInput
-const handleConfirmValue = async (eventPayload) => {
-    if (eventPayload) {
-        const amount = eventPayload.amount;
-        const senderName = eventPayload.senderName;
-        const receiverName = eventPayload.receiverName;
-
-        console.log(`Transaction Confirmed: ${senderName} -> ${receiverName}, Amount: $${amount}`);
-
-        // Update sender's balance (subtract amount)
-        if (senderName === 'Bank') {
-            // Bank balance is infinite, no subtraction needed
-        } else if (senderName === 'Tax') {
-            taxBalance.value -= amount;
-        } else {
-            const senderPlayerIndex = players.value.findIndex(p => p.name === senderName);
-            if (senderPlayerIndex !== -1) {
-                // Array Replacement for Reactivity - Sender Balance Update
-                const updatedPlayers = [...players.value]; // Create a COPY of the players array
-                updatedPlayers[senderPlayerIndex].balance -= amount; // Update balance in the COPIED array
-                players.value = updatedPlayers; // Replace ORIGINAL players array with the UPDATED COPY - Force Reactivity
-                console.log(`Player (Sender - ${senderName}) - Balance after:`, players.value[senderPlayerIndex].balance);
-            }
-        }
-
-        // Update receiver's balance (add amount)
-        if (receiverName === 'Bank') {
-            bankBalance.value = Infinity;
-        } else if (receiverName === 'Tax') {
-            taxBalance.value += amount;
-        } else {
-            const receiverPlayerIndex = players.value.findIndex(p => p.name === receiverName);
-            if (receiverPlayerIndex !== -1) {
-                // Array Replacement for Reactivity - Receiver Balance Update
-                const updatedPlayers = [...players.value]; // Create a COPY of the players array
-                updatedPlayers[receiverPlayerIndex].balance += amount; // Update balance in the COPIED array
-                players.value = updatedPlayers; // Replace ORIGINAL players array with the UPDATED COPY - Force Reactivity
-                console.log(`Player (Receiver - ${receiverName}) - Balance after:`, players.value[receiverPlayerIndex].balance);
-            }
-        }
-
-        const transactionEntry = { // CORRECTED - Implement transactionEntry object creation here
-            timestamp: new Date().toLocaleString(), // Get current timestamp
-            senderName: senderName,
-            receiverName: receiverName,
-            amount: amount,
-            transactionType: 'transfer', // For drag and drop transactions - You can make this dynamic if needed later
-        };
-
-        // Push transaction entry to CENTRALIZED transactionLog in TabletopLayout.vue (Remains same)
-        transactionLog.value.push(transactionEntry); // Push transaction entry to CENTRALIZED transactionLog
-        console.log(`Transaction logged to CENTRALIZED transaction log.`);
-
-        await nextTick();
-
-        const senderWalletBoardRef = getWalletBoardRef(senderName);
-        const receiverWalletBoardRef = getWalletBoardRef(receiverName);
-
-        // Push transaction entry to sender's transactionHistory - Re-implemented - Now pushing to INDIVIDUAL WalletBoard ref
-        if (senderWalletBoardRef) {
-            senderWalletBoardRef.pushTransaction(transactionEntry); // Push to INDIVIDUAL sender WalletBoard's transactionHistory - RE-IMPLEMENTED
-            console.log(`Transaction logged to sender wallet (${senderName}) history.`); // Log sender history update
-        } else {
-            console.log("Sender WalletBoard ref or transactionHistory ref NOT VALID for logging to sender history."); // ADDED CONSOLE LOG - ELSE BLOCK - Sender
-        }
-
-        // Push transaction entry to receiver's transactionHistory - Re-implemented - Now pushing to INDIVIDUAL WalletBoard ref
-        if (receiverWalletBoardRef) {
-            receiverWalletBoardRef.pushTransaction(transactionEntry); // Push to INDIVIDUAL receiver WalletBoard's transactionHistory - RE-IMPLEMENTED
-            console.log(`Transaction logged to receiver wallet (${receiverName}) history.`);
-        } else {
-            console.log("Receiver WalletBoard ref or transactionHistory ref NOT VALID for logging to receiver history."); // ADDED CONSOLE LOG - ELSE BLOCK - Receiver
-        }
-
-        isModalVisible.value = false;
-        selectedWalletName.value = null;
-        transactionType.value = null;
-        inputValue.value = 0;
-        senderWalletName.value = null;
-        receiverWalletName.value = null;
-    }
-};
-
-// Function to handle modal cancellation
-const handleCancelModal = () => {
-    isModalVisible.value = false;
-    selectedWalletName.value = null;
-    transactionType.value = null;
-    inputValue.value = 0;
-    senderWalletName.value = null;
-    receiverWalletName.value = null;
-};
-
-const getWalletBoardRef = (walletName) => {
-    if (walletName === 'Bank') {
-        return bankWalletRef.value;
-    } else if (walletName === 'Tax') {
-        return taxWalletRef.value;
-    } else {
-        const componentRef = playerWalletRefs.value[walletName]; // Access player WalletBoard ref from playerWalletRefs object using walletName as key
-        return componentRef ? componentRef : null;
-    }
-};
-
-const setPlayerWalletRef = (el, playerNum) => {
-    playerWalletRefs.value[`Player ${playerNum}`] = el;
-}
-
-const expandedWallets = ref(new Set()); // Use a Set to store names of expanded wallets - Initialize as empty Set
-
-// Function to handle wallet-clicked event from WalletBoard
-const handleWalletClicked = (walletName) => {
-    console.log("Wallet clicked:", walletName);
-
-    // Toggle expanded state of the clicked wallet in the expandedWallets Set
-    if (expandedWallets.value.has(walletName)) {
-        expandedWallets.value.delete(walletName); // Collapse if already expanded
-        console.log("Wallet collapsed:", walletName);
-    } else {
-        expandedWallets.value.add(walletName);    // Expand if collapsed
-        console.log("Wallet expanded:", walletName);
-    }
-};
-
-const toggleTransactionLogModal = () => {
-    isTransactionLogModalVisible.value = !isTransactionLogModalVisible.value;
-};
-
-const openRestartConfirmationModal = () => {
-    isRestartConfirmationModalVisible.value = true;
-};
-
-// +++ NEW FUNCTION - Close Restart Confirmation Modal
-const closeRestartConfirmationModal = () => {
-    isRestartConfirmationModalVisible.value = false;
-};
-
-// +++ NEW FUNCTION - Restart Game (triggered by modal)
+// --- Game Restart Logic ---
 const restartGame = () => {
-    console.log("Restarting Game - Emitting Event");
-    emit('restart-game'); // Emit the restart event
-    isRestartConfirmationModalVisible.value = false; // Close the modal
+    console.log("Restarting Game...");
+    // 1. Reset Balances
+    initializePlayers(); // Re-run player initialization
+    resetTaxBalance(0); // Reset tax
+    // Bank is already Infinity
+
+    // 2. Clear Logs
+    clearLog(); // Clear central log
+    // Clear individual wallet logs
+    Object.values(playerWalletRefs.value).forEach(ref => ref?.transactionHistory?.value?.splice(0));
+    bankWalletRef.value?.transactionHistory?.value?.splice(0);
+    taxWalletRef.value?.transactionHistory?.value?.splice(0);
+
+
+    // 3. Collapse any expanded wallets
+    collapseAllWallets();
+
+    // 4. Close Modals
+    handleCancelModal(); // Close transaction modal if open
+    closeRestartConfirmationModal(); // Close restart modal
+    if (isTransactionLogModalVisible.value) toggleTransactionLogModal(); // Close log modal
+
+    // 5. Emit event to parent (App.vue) if needed for higher-level resets
+    emit('restart-game');
+    console.log("Game Reset Complete.");
 };
+
+// --- Watchers (Example: Log when layout changes) ---
+watch(layoutConfig, (newConfig) => {
+    console.log("Layout Config Updated in Component:", newConfig);
+}, { deep: true });
+
+// --- Lifecycle Hooks ---
+onMounted(() => {
+    console.log("TabletopLayout component mounted.");
+    // GSAP Draggable setup is handled within its composable's onMounted
+});
+
 </script>
+
 
 <style scoped>
 @reference "../style.css";
