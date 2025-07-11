@@ -36,5 +36,7 @@ export default defineConfig({
     }
   })
 ],
-base: '/mvb/'
+// Base URL for the app. Defaults to /mvb/ for local dev or if VITE_BASE_URL is not set.
+// GitHub Actions workflow will set VITE_BASE_URL for specific deployment paths.
+base: process.env.VITE_BASE_URL || '/mvb/'
 })

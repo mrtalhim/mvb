@@ -2,54 +2,61 @@
 name: Deploy static content to Pages
 
 on:
-  # Runs on pushes targeting the default branch (usually 'main' or 'master')
   push:
-    branches: ["master"] # Or 'master', depending on your default branch name
-
-  # Allows you to run this workflow manually from the Actions tab
+    branches:
+      - main # Assuming 'main' is your default branch
+      - feature/refactor-ux-perf # Deploy the feature branch as well
   workflow_dispatch:
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
-# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
+  contents: write # Needs write to push to gh-pages branch
 
 jobs:
-  # Single deployment job since we're just deploying
   deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: 18 # Or your project's required Node.js version
+          node-version: 18
           cache: "npm"
+
       - name: Install dependencies
-        run: npm ci # Use ci for cleaner installs in CI environments
+        run: npm ci
+
+      - name: Determine Base URL and Destination Directory
+        id: path_config
+        run: |
+          if [ "${{ github.ref_name }}" == "main" ]; then
+            echo "VITE_BASE_URL=/mvb/" >> $GITHUB_ENV
+            echo "DEST_DIR=." >> $GITHUB_ENV
+            echo "Deployed URL: https://${{ github.repository_owner }}.github.io/mvb/"
+          elif [ "${{ github.ref_name }}" == "feature/refactor-ux-perf" ]; then
+            echo "VITE_BASE_URL=/mvb/beta/" >> $GITHUB_ENV
+            echo "DEST_DIR=beta" >> $GITHUB_ENV
+            echo "Deployed URL: https://${{ github.repository_owner }}.github.io/mvb/beta/"
+          else
+            echo "Branch not configured for deployment. Exiting."
+            exit 1
+          fi
+
       - name: Build
         run: npm run build
         env:
-          GITHUB_PAGES: "true" # Set the environment variable for vite.config.js
-          GITHUB_REPOSITORY: ${{ github.repository }} # Pass the repo name to vite.config.js
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          # Upload entire directory
-          path: "./dist" # Make sure this matches your vite build.outDir
+          VITE_BASE_URL: ${{ env.VITE_BASE_URL }} # Use the base URL determined in the previous step
+
       - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages # Branch to deploy to
+          publish_dir: ./dist   # Directory to deploy
+          destination_dir: ${{ env.DEST_DIR }} # Deploy to root or subfolder
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: Deploying ${{ github.ref_name }} to ${{ env.DEST_DIR }}
+          keep_files: ${{ github.ref_name != 'main' }} # Keep files for feature branches, main branch overwrites
+          allow_empty_commit: true
