@@ -3,6 +3,7 @@
         <h2 class="text-lg font-bold mb-2 text-center">{{ title }}</h2>
         <div class="border rounded-md p-2 bg-white dark:bg-gray-800 w-full dark:text-white items-center justify-center">
             <div v-for="(transaction, index) in transactions" :key="index"
+                v-memo="[transaction.timestamp, transaction.amount, transaction.senderName, transaction.receiverName]"
                 class="flex flex-row gap-2 mb-4 items-center justify-between ">
                 <WalletBoard :name="transaction.senderName" :balance="getWalletBalance(transaction.senderName)"
                     :walletColorClass="getWalletColor(transaction.senderName)" :expanded="expandedSender"

@@ -67,39 +67,64 @@ const onRestartGame = async () => {
 // --- Animation Functions ---
 
 const animateConfigEntrance = () => {
-  const tl = gsap.timeline();
+  if (gameConfig.value?.$el) {
+    gsap.from(gameConfig.value.$el, {
+      opacity: 0,
+      y: 50, // Enter from bottom
+      duration: 0.5,
+      ease: 'power2.out',
+      // delay: 0.1 // Optional small delay if TabletopLayout exit takes time
+    });
+  }
 };
 
 const animateConfigExit = () => {
-  return gsap.to(gameConfig.value.$el, {
-    opacity: 0,
-    y: -50,
-    duration: 0.5,
-    ease: 'power2.out',
-  });
+  if (gameConfig.value?.$el) {
+    return gsap.to(gameConfig.value.$el, {
+      opacity: 0,
+      y: -50, // Exit to top
+      duration: 0.5,
+      ease: 'power2.in', // Ease in for exit
+    });
+  }
+  return Promise.resolve(); // Return a resolved promise if no element
 };
 
 const animateTabletopEntrance = () => {
-  gsap.from(tabletopLayout.value.$el, {
-    opacity: 0,
-    y: 50,
-    duration: 0.5,
-    ease: 'power2.out',
-  });
+  if (tabletopLayout.value?.$el) {
+    gsap.from(tabletopLayout.value.$el, {
+      opacity: 0,
+      y: 50, // Enter from bottom
+      duration: 0.5,
+      ease: 'power2.out',
+      delay: 0.3, // Add a slight delay to ensure config is gone
+    });
+  }
 };
 
 const animateTabletopExit = () => {
-  return gsap.to(tabletopLayout.value.$el, {
-    opacity: 0,
-    y: -50,
-    duration: 0.5,
-    ease: 'power2.out',
-  });
+  if (tabletopLayout.value?.$el) {
+    return gsap.to(tabletopLayout.value.$el, {
+      opacity: 0,
+      y: -50, // Exit to top
+      duration: 0.5,
+      ease: 'power2.in', // Ease in for exit
+    });
+  }
+  return Promise.resolve(); // Return a resolved promise if no element
 };
 
 onMounted(() => {
-  // Animate the config panel entrance
-  animateConfigEntrance();
+  // Animate the initial config panel entrance when app loads
+  if (!gameStarted.value && gameConfig.value?.$el) {
+    // Ensure GameSetupConfig is meant to be shown and its element exists
+    gsap.set(gameConfig.value.$el, { opacity: 0 }); // Start fully transparent before animation
+    animateConfigEntrance();
+  } else if (gameStarted.value && tabletopLayout.value?.$el) {
+    // If app loads and game is already started (e.g. from state persistence)
+    gsap.set(tabletopLayout.value.$el, { opacity: 0 });
+    animateTabletopEntrance();
+  }
 });
 </script>
 
