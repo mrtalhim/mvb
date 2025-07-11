@@ -11,8 +11,13 @@
                 Close
             </button>
             <h3 v-once class="player-name text-md text-center text-black max-w-[100px]">{{ name }}</h3>
-            <p ref="balanceDisplayRef" class="balance text-2xl font-bold text-center text-black"></p>
-            <!-- Text content will be set by TextPlugin -->
+            <p class="balance text-2xl font-bold text-center text-black">
+                <span ref="balanceSymbolRef" class="currency-symbol"></span><span
+                    ref="balanceValueRef" class="amount-value"
+                ></span><span
+                    ref="balanceSuffixRef" class="amount-suffix"
+                ></span>
+            </p>
 
             <TransactionLog v-if="expanded" :transactions="transactionHistory" :isPersonal="true"
                 :title="`Transaction History (${name})`" />
@@ -67,10 +72,19 @@ const props = defineProps({
 // Add isBankProp for useBalanceTween
 const { balance: balanceProp, expanded: expandedProp, isTappable: isTappableProp, isBank: isBankProp } = toRefs(props);
 
-const balanceDisplayRef = ref(null); // Ref for the balance display element
+const balanceSymbolRef = ref(null);
+const balanceValueRef = ref(null);
+const balanceSuffixRef = ref(null);
 
-// Use the balance tweening composable, passing the element ref and isBank status
-useBalanceTween(balanceProp, balanceDisplayRef, isBankProp, expandedProp);
+// Use the balance tweening composable, passing the new refs
+useBalanceTween(
+    balanceProp,
+    balanceSymbolRef,
+    balanceValueRef,
+    balanceSuffixRef,
+    isBankProp,
+    expandedProp
+);
 
 
 const transactionHistory = ref([]);
