@@ -4,12 +4,12 @@ name: Deploy static content to Pages
 on:
   push:
     branches:
-      - master # Corrected to 'master'
-      - feature/refactor-ux-perf # Deploy the feature branch as well
+      - master # Default branch
+      - feature/refactor-ux-perf # Feature branch for beta deployment
   workflow_dispatch:
 
 permissions:
-  contents: write # Needs write to push to gh-pages branch
+  contents: write # Required by peaceiris/actions-gh-pages to push to gh-pages branch
 
 jobs:
   deploy:
@@ -21,42 +21,47 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 18 # Or your project's required Node.js version
           cache: "npm"
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci # Use ci for cleaner installs in CI environments
 
       - name: Determine Base URL and Destination Directory
         id: path_config
         run: |
+          echo "Current branch: ${{ github.ref_name }}"
           if [ "${{ github.ref_name }}" == "master" ]; then
             echo "VITE_BASE_URL=/mvb/" >> $GITHUB_ENV
             echo "DEST_DIR=." >> $GITHUB_ENV
-            echo "Deployed URL: https://${{ github.repository_owner }}.github.io/mvb/"
+            echo "Deploying 'master' to root (/mvb/)"
           elif [ "${{ github.ref_name }}" == "feature/refactor-ux-perf" ]; then
             echo "VITE_BASE_URL=/mvb/beta/" >> $GITHUB_ENV
             echo "DEST_DIR=beta" >> $GITHUB_ENV
-            echo "Deployed URL: https://${{ github.repository_owner }}.github.io/mvb/beta/"
+            echo "Deploying 'feature/refactor-ux-perf' to /mvb/beta/"
           else
-            echo "Branch not configured for deployment. Exiting."
-            exit 1
+            echo "Branch ${{ github.ref_name }} is not configured for deployment. Exiting."
+            # exit 1 # Commenting out exit 1 to allow manual workflow_dispatch runs on other branches for testing if needed, though they won't deploy correctly without config.
           fi
 
       - name: Build
+        if: env.VITE_BASE_URL != '' # Only build if VITE_BASE_URL was set
         run: npm run build
         env:
-          VITE_BASE_URL: ${{ env.VITE_BASE_URL }} # Use the base URL determined in the previous step
+          VITE_BASE_URL: ${{ env.VITE_BASE_URL }}
 
       - name: Deploy to GitHub Pages
+        if: env.VITE_BASE_URL != '' # Only deploy if VITE_BASE_URL was set
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_branch: gh-pages # Branch to deploy to
-          publish_dir: ./dist   # Directory to deploy
-          destination_dir: ${{ env.DEST_DIR }} # Deploy to root or subfolder
+          publish_branch: gh-pages
+          publish_dir: ./dist
+          destination_dir: ${{ env.DEST_DIR }}
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
-          commit_message: Deploying ${{ github.ref_name }} to ${{ env.DEST_DIR }}
-          keep_files: ${{ github.ref_name != 'master' }} # Keep files for feature branches, master branch overwrites
+          commit_message: "Deploy: ${{ github.ref_name }} to ${{ env.DEST_DIR }} (${{ github.sha }})"
+          keep_files: ${{ github.ref_name != 'master' }} # For master, old files in root are removed. For other branches (beta), files in other dirs are kept.
           allow_empty_commit: true
+          force_orphan: ${{ github.ref_name == 'master' && env.DEST_DIR == '.' }} # Ensures 'master' deployment to root is always clean
+          # cname: yourcustomdomain.com # Uncomment if you have a custom domain
