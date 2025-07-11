@@ -11,8 +11,7 @@
             <!-- Bank Wallet -->
             <div class="bank-area mb-4">
                 <WalletBoard name="Bank" :balance="bankBalance" isBank @transaction-requested="handleTransactionRequest"
-                    draggable="true" @dragstart="handleDragStart($event, 'Bank')" @drop="handleDrop($event, 'Bank')"
-                    @dragover.prevent @dragenter.prevent ref="bankWalletRef" />
+                    draggable="true" @dragover.prevent @dragenter.prevent ref="bankWalletRef" />
             </div>
 
             <div class="layout-grid grid h-full">
@@ -28,8 +27,7 @@
                         <WalletBoard :name="`Player ${element.playerNum}`"
                             :balance="players[element.playerNum - 1]?.balance || 0"
                             @transaction-requested="handleTransactionRequest" :orientation="element.orientation"
-                            draggable="true" @dragstart="handleDragStart($event, `Player ${element.playerNum}`)"
-                            @drop="handleDrop($event, `Player ${element.playerNum}`)" @dragover.prevent
+                            draggable="true" @dragover.prevent
                             @dragenter.prevent @wallet-clicked="handleWalletClicked"
                             :expanded="expandedWallets.has(`Player ${element.playerNum}`)"
                             :ref="(el) => setPlayerWalletRef(el, element.playerNum)"
@@ -41,8 +39,7 @@
             <!-- Tax Wallet -->
             <div class="tax-area mt-4">
                 <WalletBoard name="Tax" :balance="taxBalance" isTax @transaction-requested="handleTransactionRequest"
-                    draggable="true" @dragstart="handleDragStart($event, 'Tax')" @drop="handleDrop($event, 'Tax')"
-                    @dragover.prevent @dragenter.prevent :expanded="expandedWallets.has('Tax')"
+                    draggable="true" @dragover.prevent @dragenter.prevent :expanded="expandedWallets.has('Tax')"
                     @wallet-clicked="handleWalletClicked" ref="taxWalletRef" />
             </div>
 
@@ -94,27 +91,23 @@
 </template>
 
 <script setup>
-import { ref, onMounted, provide, toRef, watch } from 'vue';
+import { ref, onMounted, provide, toRef, watch, computed, nextTick } from 'vue';
 import WalletBoard from '../components/WalletBoard.vue';
 import ModalNumberInput from '../components/ModalNumberInput.vue';
 import TransactionLog from '../components/TransactionLog.vue';
 import { useModalTransition } from '../composables/useModalTransition.js';
-import { ref, computed, onMounted, nextTick, provide } from 'vue';
 
 // Import Composables
 import { usePlayers } from '../composables/usePlayers';
 import { useLayout } from '../composables/useLayout';
+
+const emit = defineEmits(['restart-game']);
 import { useTransactionLog } from '../composables/useTransactionLog';
 import { useBankAndTax } from '../composables/useBankAndTax';
 import { useTransactions } from '../composables/useTransactions';
 import { useDraggableWallets } from '../composables/useDraggableWallets';
 import { useModals } from '../composables/useModals';
 import { useWalletExpansion } from '../composables/useWalletExpansion';
-
-const emit = defineEmits(['restart-game']);
-const isRestartConfirmationModalVisible = ref(false);
-
-const isTransactionLogModalVisible = ref(false);
 
 const { beforeEnterModal, enterModal, leaveModal } = useModalTransition();
 
@@ -136,8 +129,6 @@ const props = defineProps({
     },
 });
 
-const emit = defineEmits(['restart-game']);
-
 // --- Use Composables ---
 
 // Props need to be reactive refs when passed to composables
@@ -151,6 +142,7 @@ const { layoutConfig, getWalletOrientation, getWalletColor } = useLayout(playerC
 const { transactionLog, logTransaction, clearLog } = useTransactionLog();
 const { bankBalance, taxBalance, updateTaxBalance, resetTaxBalance } = useBankAndTax(0); // Start tax at 0
 const { expandedWallets, handleWalletClicked, collapseAllWallets } = useWalletExpansion();
+const transactionType = ref(null); // Define transactionType locally
 const {
     isTransactionLogModalVisible,
     toggleTransactionLogModal,
@@ -258,102 +250,13 @@ onMounted(() => {
     // GSAP Draggable setup is handled within its composable's onMounted
 });
 
-// Handle drag start - set the dragged wallet as source
-const handleDragStart = (dragEvent, walletName) => {
-    console.log(`Drag started from wallet: ${walletName}`);
-    dragSource.value = walletName;
-};
-
-
-// Function to handle wallet drop (GSAP Draggable's onDragEnd) - NEW FUNCTION - Replaces original handleDrop
-const handleWalletDrop = async (droppedWalletElement, draggableInstance, targetWalletNameFromHighlight) => {
-    const sourceWalletName = dragSource.value;
-    const targetWalletName = targetWalletNameFromHighlight;
-
-    console.log(`Drop received on wallet: ${targetWalletName}`);
-
-    // Clear any hover on the source wallet
-    clearWalletBoardHover(sourceWalletName);
-
-    // Clear any hover on the target wallet
-    clearWalletBoardHover(targetWalletName);
-
-    // +++ Animate wallet back to ORIGINAL ABSOLUTE position +++
-    const initialLeft = parseFloat(droppedWalletElement.dataset.initialLeft); // Retrieve absolute initial left
-    const initialTop = parseFloat(droppedWalletElement.dataset.initialTop);   // Retrieve absolute initial top
-
-    console.log("handleWalletDrop - Retrieved initialLeft:", initialLeft, "initialTop:", initialTop); // Log retrieved positions
-
-    gsap.to(droppedWalletElement, {
-        x: 0,       // Animate x offset to ZERO - Reset horizontal translation
-        y: 0,       // Animate y offset to ZERO - Reset vertical translation
-        duration: 0.3,   // Animation duration (adjust as needed)
-        ease: "elastic.out", // Easing function (adjust as needed)
-        // transformOrigin: "0% 0%" // Optional: If needed, set transformOrigin to top-left
-    });
-
-    if (sourceWalletName && sourceWalletName !== targetWalletName && targetWalletName) {
-        console.log(`Initiating transaction from ${sourceWalletName} to ${targetWalletName}`);
-
-        // Set sender and receiver for transaction
-        senderWalletName.value = sourceWalletName;
-        receiverWalletName.value = targetWalletName;
-
-        senderWalletColor.value = getWalletColor(sourceWalletName);
-        receiverWalletColor.value = getWalletColor(targetWalletName);
-
-        selectedWalletName.value = sourceWalletName;
-
-        // Determine orientation for the modal
-        const senderPlayerLayout = props.tabletopMode ? getWalletOrientation(sourceWalletName) : 'up';
-        selectedWalletOrientation.value = senderPlayerLayout || 'up';
-
-        // Show transaction modal
-        transactionType.value = 'transfer';
-        isModalVisible.value = true;
-    }
-
-    // Reset drag source
-    dragSource.value = null;
-};
-
-
-const getWalletColor = (walletName) => {
-    if (walletName === 'Bank') {
-        return 'bg-mvb-gray';
-    } else if (walletName === 'Tax') {
-        return 'bg-mvb-white';
-    } else {
-        const playerIndex = parseInt(walletName.replace('Player ', '')) - 1;
-        const playerColors = ['bg-mvb-blue', 'bg-mvb-green', 'bg-mvb-pale', 'bg-mvb-salmon', 'bg-mvb-orange', 'bg-mvb-yellow'];
-        return playerColors[playerIndex % playerColors.length] || 'bg-mvb-white';
-    }
-};
-
-// Helper function to get wallet orientation
-const getWalletOrientation = (walletName) => {
-    if (!props.tabletopMode) { // Check if tabletopMode is false
-        return 'up';
-    }
-    if (walletName === 'Bank' || walletName === 'Tax') {
-        return 'up';
-    }
-
-    const playerNumber = parseInt(walletName.replace('Player ', ''));
-    const playerLayout = layoutConfig.value[props.playerCount]?.find(
-        layout => layout.playerNum === playerNumber
-    );
-
-    return playerLayout ? playerLayout.orientation : 'up';
-};
-
 const handleTransactionRequest = (eventPayload) => {
     senderWalletName.value = eventPayload.senderName;
     senderWalletColor.value = getWalletColor(eventPayload.senderName);
     receiverWalletColor.value = getWalletColor(eventPayload.receiverName);
 
     receiverWalletName.value = eventPayload.receiverName;
-    selectedWalletName.value = eventPayload.senderName;
+    // selectedWalletName.value = eventPayload.senderName; // selectedWalletName is not defined
 
     // Determine orientation of the sender wallet and set selectedWalletOrientation
     if (!props.tabletopMode) {
@@ -374,155 +277,6 @@ const handleTransactionRequest = (eventPayload) => {
 
     transactionType.value = 'transfer';
     isModalVisible.value = true;
-};
-
-// Function to handle value confirmation from ModalNumberInput
-const handleConfirmValue = async (eventPayload) => {
-    if (eventPayload) {
-        const amount = eventPayload.amount;
-        const senderName = eventPayload.senderName;
-        const receiverName = eventPayload.receiverName;
-
-        console.log(`Transaction Confirmed: ${senderName} -> ${receiverName}, Amount: $${amount}`);
-
-        // Update sender's balance (subtract amount)
-        if (senderName === 'Bank') {
-            // Bank balance is infinite, no subtraction needed
-        } else if (senderName === 'Tax') {
-            taxBalance.value -= amount;
-        } else {
-            const senderPlayerIndex = players.value.findIndex(p => p.name === senderName);
-            if (senderPlayerIndex !== -1) {
-                // Array Replacement for Reactivity - Sender Balance Update
-                const updatedPlayers = [...players.value]; // Create a COPY of the players array
-                updatedPlayers[senderPlayerIndex].balance -= amount; // Update balance in the COPIED array
-                players.value = updatedPlayers; // Replace ORIGINAL players array with the UPDATED COPY - Force Reactivity
-                console.log(`Player (Sender - ${senderName}) - Balance after:`, players.value[senderPlayerIndex].balance);
-            }
-        }
-
-        // Update receiver's balance (add amount)
-        if (receiverName === 'Bank') {
-            bankBalance.value = Infinity;
-        } else if (receiverName === 'Tax') {
-            taxBalance.value += amount;
-        } else {
-            const receiverPlayerIndex = players.value.findIndex(p => p.name === receiverName);
-            if (receiverPlayerIndex !== -1) {
-                // Array Replacement for Reactivity - Receiver Balance Update
-                const updatedPlayers = [...players.value]; // Create a COPY of the players array
-                updatedPlayers[receiverPlayerIndex].balance += amount; // Update balance in the COPIED array
-                players.value = updatedPlayers; // Replace ORIGINAL players array with the UPDATED COPY - Force Reactivity
-                console.log(`Player (Receiver - ${receiverName}) - Balance after:`, players.value[receiverPlayerIndex].balance);
-            }
-        }
-
-        const transactionEntry = { // CORRECTED - Implement transactionEntry object creation here
-            timestamp: new Date().toLocaleString(), // Get current timestamp
-            senderName: senderName,
-            receiverName: receiverName,
-            amount: amount,
-            transactionType: 'transfer', // For drag and drop transactions - You can make this dynamic if needed later
-        };
-
-        // Push transaction entry to CENTRALIZED transactionLog in TabletopLayout.vue (Remains same)
-        transactionLog.value.push(transactionEntry); // Push transaction entry to CENTRALIZED transactionLog
-        console.log(`Transaction logged to CENTRALIZED transaction log.`);
-
-        await nextTick();
-
-        const senderWalletBoardRef = getWalletBoardRef(senderName);
-        const receiverWalletBoardRef = getWalletBoardRef(receiverName);
-
-        // Push transaction entry to sender's transactionHistory
-        if (senderWalletBoardRef && typeof senderWalletBoardRef.pushTransaction === 'function') {
-            senderWalletBoardRef.pushTransaction(transactionEntry);
-            console.log(`Transaction logged to sender wallet (${senderName}) history.`);
-        } else {
-            console.log("Sender WalletBoard ref or pushTransaction not available for:", senderName);
-        }
-
-        // Push transaction entry to receiver's transactionHistory
-        if (receiverWalletBoardRef && typeof receiverWalletBoardRef.pushTransaction === 'function') {
-            receiverWalletBoardRef.pushTransaction(transactionEntry);
-            console.log(`Transaction logged to receiver wallet (${receiverName}) history.`);
-        } else {
-            console.log("Receiver WalletBoard ref or pushTransaction not available for:", receiverName);
-        }
-
-        // Visual feedback for transaction
-        const senderEl = senderWalletBoardRef?.$el || senderWalletBoardRef;
-        const receiverEl = receiverWalletBoardRef?.$el || receiverWalletBoardRef;
-
-        if (senderEl) {
-            gsap.fromTo(senderEl,
-                { outline: "4px solid yellow" },
-                { outline: "4px solid transparent", duration: 0.7, ease: "power1.out" }
-            );
-        }
-        if (receiverEl) {
-            gsap.fromTo(receiverEl,
-                { outline: "4px solid green" },
-                { outline: "4px solid transparent", duration: 0.7, ease: "power1.out", delay: 0.1 }
-            );
-        }
-
-        isModalVisible.value = false;
-        selectedWalletName.value = null;
-        transactionType.value = null;
-        inputValue.value = 0;
-        senderWalletName.value = null;
-        receiverWalletName.value = null;
-    }
-};
-
-// Function to handle modal cancellation
-const handleCancelModal = () => {
-    isModalVisible.value = false;
-    selectedWalletName.value = null;
-    transactionType.value = null;
-    inputValue.value = 0;
-    senderWalletName.value = null;
-    receiverWalletName.value = null;
-};
-
-const getWalletBoardRef = (walletName) => {
-    if (walletName === 'Bank') {
-        return bankWalletRef.value;
-    } else if (walletName === 'Tax') {
-        return taxWalletRef.value;
-    } else {
-        const componentRef = playerWalletRefs.value[walletName]; // Access player WalletBoard ref from playerWalletRefs object using walletName as key
-        return componentRef ? componentRef : null;
-    }
-};
-
-const setPlayerWalletRef = (el, playerNum) => {
-    playerWalletRefs.value[`Player ${playerNum}`] = el;
-}
-
-const expandedWallets = ref(new Set()); // Use a Set to store names of expanded wallets - Initialize as empty Set
-
-// Function to handle wallet-clicked event from WalletBoard
-const handleWalletClicked = (walletName) => {
-    console.log("Wallet clicked:", walletName);
-
-    // Toggle expanded state of the clicked wallet in the expandedWallets Set
-    if (expandedWallets.value.has(walletName)) {
-        expandedWallets.value.delete(walletName); // Collapse if already expanded
-        console.log("Wallet collapsed:", walletName);
-    } else {
-        expandedWallets.value.add(walletName);    // Expand if collapsed
-        console.log("Wallet expanded:", walletName);
-    }
-};
-
-const toggleTransactionLogModal = () => {
-    isTransactionLogModalVisible.value = !isTransactionLogModalVisible.value;
-};
-
-const openRestartConfirmationModal = () => {
-    isRestartConfirmationModalVisible.value = true;
 };
 
 </script>
