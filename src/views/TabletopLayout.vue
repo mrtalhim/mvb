@@ -97,7 +97,7 @@
 import WalletBoard from '../components/WalletBoard.vue';
 import ModalNumberInput from '../components/ModalNumberInput.vue';
 import TransactionLog from '../components/TransactionLog.vue';
-import { beforeEnterModal, enterModal, leaveModal } from '../utils/animations';
+import { useModalTransition } from '../composables/useModalTransition.js';
 import { ref, computed, onMounted, nextTick, provide } from 'vue';
 
 import { gsap } from 'gsap'; // Import GSAP
@@ -109,6 +109,9 @@ const emit = defineEmits(['restart-game']);
 const isRestartConfirmationModalVisible = ref(false);
 
 const isTransactionLogModalVisible = ref(false);
+
+const { beforeEnterModal, enterModal, leaveModal } = useModalTransition();
+
 const props = defineProps({
     playerCount: {  // Define playerCount as a prop
         type: Number,
@@ -619,20 +622,37 @@ const handleConfirmValue = async (eventPayload) => {
         const senderWalletBoardRef = getWalletBoardRef(senderName);
         const receiverWalletBoardRef = getWalletBoardRef(receiverName);
 
-        // Push transaction entry to sender's transactionHistory - Re-implemented - Now pushing to INDIVIDUAL WalletBoard ref
-        if (senderWalletBoardRef) {
-            senderWalletBoardRef.pushTransaction(transactionEntry); // Push to INDIVIDUAL sender WalletBoard's transactionHistory - RE-IMPLEMENTED
-            console.log(`Transaction logged to sender wallet (${senderName}) history.`); // Log sender history update
+        // Push transaction entry to sender's transactionHistory
+        if (senderWalletBoardRef && typeof senderWalletBoardRef.pushTransaction === 'function') {
+            senderWalletBoardRef.pushTransaction(transactionEntry);
+            console.log(`Transaction logged to sender wallet (${senderName}) history.`);
         } else {
-            console.log("Sender WalletBoard ref or transactionHistory ref NOT VALID for logging to sender history."); // ADDED CONSOLE LOG - ELSE BLOCK - Sender
+            console.log("Sender WalletBoard ref or pushTransaction not available for:", senderName);
         }
 
-        // Push transaction entry to receiver's transactionHistory - Re-implemented - Now pushing to INDIVIDUAL WalletBoard ref
-        if (receiverWalletBoardRef) {
-            receiverWalletBoardRef.pushTransaction(transactionEntry); // Push to INDIVIDUAL receiver WalletBoard's transactionHistory - RE-IMPLEMENTED
+        // Push transaction entry to receiver's transactionHistory
+        if (receiverWalletBoardRef && typeof receiverWalletBoardRef.pushTransaction === 'function') {
+            receiverWalletBoardRef.pushTransaction(transactionEntry);
             console.log(`Transaction logged to receiver wallet (${receiverName}) history.`);
         } else {
-            console.log("Receiver WalletBoard ref or transactionHistory ref NOT VALID for logging to receiver history."); // ADDED CONSOLE LOG - ELSE BLOCK - Receiver
+            console.log("Receiver WalletBoard ref or pushTransaction not available for:", receiverName);
+        }
+
+        // Visual feedback for transaction
+        const senderEl = senderWalletBoardRef?.$el || senderWalletBoardRef;
+        const receiverEl = receiverWalletBoardRef?.$el || receiverWalletBoardRef;
+
+        if (senderEl) {
+            gsap.fromTo(senderEl,
+                { outline: "4px solid yellow" },
+                { outline: "4px solid transparent", duration: 0.7, ease: "power1.out" }
+            );
+        }
+        if (receiverEl) {
+            gsap.fromTo(receiverEl,
+                { outline: "4px solid green" },
+                { outline: "4px solid transparent", duration: 0.7, ease: "power1.out", delay: 0.1 }
+            );
         }
 
         isModalVisible.value = false;

@@ -10,10 +10,9 @@
                 class="absolute top-2 right-50% bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded-md shadow-md transition-all">
                 Close
             </button>
-            <h3 class="player-name text-md text-center text-black max-w-[100px]">{{ name }}</h3>
-            <p class="balance text-2xl font-bold text-center text-black" :key="displayBalance">{{
-                tweened.balance.toFixed(displayBalance.value) }}
-            </p>
+            <h3 v-once class="player-name text-md text-center text-black max-w-[100px]">{{ name }}</h3>
+            <p ref="balanceDisplayRef" class="balance text-2xl font-bold text-center text-black"></p>
+            <!-- Text content will be set by TextPlugin -->
 
             <TransactionLog v-if="expanded" :transactions="transactionHistory" :isPersonal="true"
                 :title="`Transaction History (${name})`" />
@@ -22,11 +21,11 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch, onMounted, nextTick } from 'vue';
+import { computed, ref, onMounted, toRefs } from 'vue';
 import TransactionLog from './TransactionLog.vue';
-import { gsap } from 'gsap';
-import { Flip } from "gsap/Flip"; // Import Flip plugin
-gsap.registerPlugin(Flip); // Register Flip plugin
+// GSAP and Flip will be imported by the composables
+import { useBalanceTween } from '../composables/useBalanceTween.js';
+import { useWalletFlipAnimation } from '../composables/useWalletFlipAnimation.js';
 
 const props = defineProps({
     name: {
@@ -64,28 +63,24 @@ const props = defineProps({
     }
 });
 
-const tweened = reactive({
-    balance: props.balance
-});
+// Destructure props for use in composables
+// Add isBankProp for useBalanceTween
+const { balance: balanceProp, expanded: expandedProp, isTappable: isTappableProp, isBank: isBankProp } = toRefs(props);
 
-watch(
-    () => props.balance,
-    (newBalance) => {
-        gsap.to(tweened, {
-            duration: 0.5,
-            balance: Number(newBalance) || 0,
-            delay: 0.5
-        });
-    }
-);
+const balanceDisplayRef = ref(null); // Ref for the balance display element
+
+// Use the balance tweening composable, passing the element ref and isBank status
+useBalanceTween(balanceProp, balanceDisplayRef, isBankProp, expandedProp);
+
 
 const transactionHistory = ref([]);
 const isDropTargetHover = ref(false);
 const isTouchTargetHover = ref(false);
 
 const walletBoardRef = ref(null);
-const isAnimatingExpansion = ref(false);
-const collapsedHeight = ref(null); // Ref to store collapsed height
+
+// Use the wallet flip animation composable
+const { isAnimatingExpansion, captureCollapsedState } = useWalletFlipAnimation(walletBoardRef, expandedProp, isTappableProp);
 
 const pushTransaction = (transaction) => {
     transactionHistory.value.push(transaction);
@@ -103,30 +98,8 @@ defineExpose({
 
 const emit = defineEmits(['wallet-clicked', 'transaction-requested', 'drop', 'dragover']);
 
-const displayBalance = computed(() => {
-    if (props.isBank) {
-        return '∞';
-    } else if (props.isTax) {
-        return formatCurrencyAbbreviated(props.balance);
-    } else {
-        return formatCurrencyAbbreviated(props.balance);
-    }
-});
-
-const formatCurrencyAbbreviated = (amount) => {
-    if (props.expanded) {
-        return formatCurrency(amount);
-    } else if (amount === Infinity) {
-        return '∞';
-    }
-    if (amount >= 1000000) {
-        return `$${(amount / 1000000).toFixed(1)}M`;
-    }
-    if (amount >= 100000) {
-        return `$${(amount / 1000).toFixed(1)}K`;
-    }
-    return `$${amount}`;
-};
+// displayBalanceValue and formatting functions are no longer needed here,
+// as this logic is now handled within useBalanceTween.js and TextPlugin updates the element directly.
 
 const walletColorClass = computed(() => {
     if (props.isBank) {
@@ -140,9 +113,7 @@ const walletColorClass = computed(() => {
     }
 });
 
-function formatCurrency(amount) {
-    return `$${amount}`;
-}
+// formatCurrency is no longer needed here
 
 const contentRotationStyle = computed(() => {
     let rotation = 'rotate(0deg)';
@@ -199,100 +170,61 @@ const onTouchEnd = (event) => {
 };
 
 const handleClick = () => {
+    // Use the isAnimatingExpansion from the composable
     if (props.isTappable && !isAnimatingExpansion.value) {
         emit('wallet-clicked', props.name);
     }
 }
 
 const handleCloseClick = () => {
+    // Use the isAnimatingExpansion from the composable
     if (props.isTappable && !isAnimatingExpansion.value) {
         emit('wallet-clicked', props.name)
     }
 }
 
-watch(
-    () => props.expanded,
-    (isExpanded) => {
-        if (walletBoardRef.value) {
-            isAnimatingExpansion.value = true;
-            if (isExpanded) {
-                // --- EXPAND ANIMATION (No changes to expand for now) ---
-                const flipState = Flip.getState(walletBoardRef.value);
+import { gsap } from 'gsap'; // Import GSAP for onMounted animation
 
-                gsap.set(walletBoardRef.value, {
-                    position: 'fixed',
-                    xPercent: -50,
-                    yPercent: -50,
-                    top: "50%",
-                    left: "50%",
-                    width: '100vw',
-                    height: '100svh',
-                    zIndex: 101,
-                    borderRadius: 0,
-                    boxShadow: '0 10px 20px rgba(0,0,0,0.3)',
-                    overflow: 'hidden'
-                });
-
-                Flip.from(flipState, {
-                    duration: 0.5,
-                    ease: "power2.inOut",
-                    scale: true,
-                    absolute: true,
-                    onComplete: () => {
-                        gsap.set(walletBoardRef.value, { overflow: 'auto' });
-                        isAnimatingExpansion.value = false;
-                        console.log("Expand Animation (Height Refine) Complete");
-                    }
-                });
-
-
-            } else {
-                // --- COLLAPSE ANIMATION - HEIGHT REFINEMENT ATTEMPT ---
-                gsap.set(walletBoardRef.value, { overflow: 'hidden' });
-
-                const flipState = Flip.getState(walletBoardRef.value);
-
-                // Immediately set COLLAPSED styles - with clearProps: "all" FIRST and specific height
-                gsap.set(walletBoardRef.value, {
-                    clearProps: "all", // Wipe inline styles FIRST - NOW AT THE BEGINNING
-                    position: 'relative', // Or your default
-                    top: 'auto',
-                    left: 'auto',
-                    xPercent: 0,
-                    yPercent: 0,
-                    width: '100%', // Or your default
-                    height: collapsedHeight.value ? collapsedHeight.value + "px" : '100%', // Use stored height or '100%' as fallback
-                    zIndex: 'auto',
-                    borderRadius: '0.75rem',
-                    boxShadow: '0 0 0 rgba(0,0,0,0)'
-                });
-
-                Flip.from(flipState, {
-                    scale: true,
-                    duration: 0.7,
-                    delay: 0,
-                    ease: "power1.inOut",
-                    absolute: true,
-                    onComplete: () => {
-                        isAnimatingExpansion.value = false;
-                        console.log("Collapse Animation (Height Refine) Complete");
-                    }
-                });
-            }
-        }
-    },
-    { immediate: false }
-);
+// The watch for props.expanded and its logic is now in useWalletFlipAnimation.js
 
 onMounted(() => {
-    gsap.set(walletBoardRef.value, { position: 'relative' });
-    // Capture initial collapsed height on mount
-    nextTick(() => {
-        if (walletBoardRef.value) {
-            collapsedHeight.value = walletBoardRef.value.offsetHeight;
-            console.log("Captured Collapsed Height:", collapsedHeight.value);
+    // Ensure the DOM element is available and then capture its state.
+    captureCollapsedState();
+
+    // Initial rotation animation for board content if allowsRotation is true
+    if (props.allowsRotation && walletBoardRef.value) {
+        const boardContent = walletBoardRef.value.querySelector('.board-content');
+        if (boardContent) {
+            let targetRotation = 0;
+            if (props.orientation === 'down') targetRotation = 180;
+            else if (props.orientation === 'left') targetRotation = 90;
+            else if (props.orientation === 'right') targetRotation = -90;
+
+            // Animate from 0 rotation to targetRotation
+            // The :style binding will still set the final state, GSAP just animates to it.
+            // To make this work seamlessly, we might need to set initial rotation to 0 via GSAP
+            // and then animate to the value defined by contentRotationStyle.
+            // However, contentRotationStyle directly sets the transform.
+            // A simpler approach: set initial state that GSAP can animate *from*.
+
+            // Get the final rotation from the computed style (which is already set by :style)
+            // And animate *from* a different state if it's not 0.
+            const finalRotationStyle = contentRotationStyle.value.transform;
+            const match = finalRotationStyle.match(/rotate\(([^deg)]+)deg\)/);
+            const finalRotationAngle = match ? parseFloat(match[1]) : 0;
+
+            if (finalRotationAngle !== 0) {
+                 gsap.from(boardContent, {
+                    rotation: 0, // Start from 0
+                    duration: 0.7,
+                    ease: 'power2.out',
+                    delay: 0.2 // Small delay to allow other things to settle
+                });
+            }
+            // GSAP will animate towards the 'rotation' value defined by the transform in contentRotationStyle
+            // For this to work best, ensure contentRotationStyle is only applying rotation.
         }
-    });
+    }
 });
 
 </script>

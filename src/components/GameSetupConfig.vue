@@ -73,6 +73,21 @@ watch(localStartingMoney, (newMoney) => console.log('Starting money updated:', n
 watch(localTabletopMode, (newMode) => console.log('Tabletop mode updated:', newMode));
 
 const startGame = () => {
+    // GSAP animation for button press
+    if (startButton.value) {
+        gsap.to(startButton.value, {
+            scale: 0.95,
+            duration: 0.1,
+            yoyo: true,
+            repeat: 1,
+            ease: 'power1.inOut',
+            onComplete: () => {
+                // Ensure scale is reset if yoyo doesn't perfectly restore it
+                gsap.set(startButton.value, { scale: 1 });
+            }
+        });
+    }
+
     emit('game-start', {
         playerCount: localPlayerCount.value,
         startingMoney: localStartingMoney.value,
@@ -86,30 +101,26 @@ const startGame = () => {
 };
 
 onMounted(() => {
-    // Animate the config panel
-    gsap.from(configPanel.value, {
-        opacity: 0,
-        height: 0,
-        y: -50,
-        duration: 0.5,
-        ease: 'power2.out',
-    });
+    // Config panel's main entrance is now handled by App.vue's animateConfigEntrance()
 
-    // Stagger the form groups
+    // Stagger the form groups, with a slight delay for the panel to enter
     gsap.from([playerCountGroup.value, startingMoneyGroup.value, tabletopModeGroup.value, buttonGroup.value], {
         opacity: 0,
         x: -20,
         duration: 0.4,
-        stagger: 0.2, // Stagger the animation by 0.2 seconds
+        stagger: 0.15, // Slightly faster stagger
         ease: 'power2.out',
+        delay: 0.4, // Delay to allow main panel animation from App.vue to largely complete
     });
 
-    // Animate the title
+    // Animate the title, also with a delay
     gsap.from(configTitle.value, {
         opacity: 0,
-        scale: 0.5,
-        duration: 0.6,
+        scale: 0.8, // Less extreme scale
+        y: -10,     // Subtle y animation
+        duration: 0.5,
         ease: 'power2.out',
+        delay: 0.3, // Delay for title
     });
 
     // Animate the start button (using gsap.fromTo())
